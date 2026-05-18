@@ -9,3 +9,5 @@ duckduckgo-search
 requests
 piper-tts
 pynput
+flask
+flask-socketio

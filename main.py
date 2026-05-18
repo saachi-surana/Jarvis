@@ -1,15 +1,15 @@
 # Setup notes:
 # 1. Install dependencies: pip install -r requirements.txt
 # 2. Start Ollama and pull the model: ollama serve && ollama pull llama3.2
-# 3. (Optional) Set PORCUPINE_ACCESS_KEY for wake word: export PORCUPINE_ACCESS_KEY="..."
-# 4. (Optional) Place Piper binary + voice model per instructions in core/speaker.py
-# 5. macOS Accessibility permission required for Cmd+Shift+J hotkey (pynput)
-# 6. Run: python main.py
+# 3. (Optional) Place Piper binary + voice model per instructions in core/speaker.py
+#    Run once: bash ~/Projects/Jarvis/download_voice.sh
+# 4. Run: python main.py
 
 import sys
 import os
+import subprocess
 import threading
-import tkinter as tk
+import time
 import requests
 
 sys.path.insert(0, os.path.dirname(__file__))
@@ -20,7 +20,7 @@ from core.brain import Brain
 from core.router import Router
 from core.speaker import speak
 from core.listener import Listener
-from ui.app import JarvisApp
+import ui.server as ui_server
 
 # Shared pipeline singletons
 _transcriber: Transcriber = None
@@ -76,8 +76,9 @@ def main():
     listener = Listener(on_audio_callback=lambda _: None)
 
     # ── Status report ──────────────────────────────────────────────────────
-    piper_bin   = os.path.expanduser("~/jarvis/piper/piper")
-    piper_model = os.path.expanduser("~/jarvis/voices/jarvis.onnx")
+    from config import PIPER_BINARY, PIPER_MODEL
+    piper_bin   = os.path.expanduser(PIPER_BINARY)
+    piper_model = os.path.expanduser(PIPER_MODEL)
     voice_status = (
         "Piper TTS"
         if os.path.isfile(piper_bin) and os.path.isfile(piper_model)
@@ -89,33 +90,37 @@ def main():
     print(f"  Voice engine    {voice_status}")
     print("============================\n")
 
-    # ── Build UI (must run in main thread) ─────────────────────────────────
-    root = tk.Tk()
-    ui = JarvisApp(
-        root,
-        process_input_fn=process_input,
-        listener=listener,
-        transcriber=_transcriber,
-    )
+    # ── Init web UI server ─────────────────────────────────────────────────
+    ui_server.init(process_input, listener, _transcriber)
 
-    # Wire listener → UI so audio from wake word also appears in the conversation
-    listener.on_audio = ui.on_audio_received
+    flask_thread = threading.Thread(
+        target=ui_server.run,
+        kwargs={"host": "127.0.0.1", "port": 5001},
+        daemon=True,
+    )
+    flask_thread.start()
 
     # ── Start listener in background ───────────────────────────────────────
     listener.start()
 
+    # ── Open Chrome app window ─────────────────────────────────────────────
+    time.sleep(1)
+    subprocess.Popen([
+        "open", "-a", "Brave Browser",
+        "--args",
+        "--app=http://localhost:5001",
+        "--window-size=480,700",
+    ])
+
     # ── Startup announcement ───────────────────────────────────────────────
     _STARTUP_MSG = "Jarvis online. Good to see you again."
+    threading.Thread(target=lambda: speak(_STARTUP_MSG), daemon=True).start()
 
-    def _speak_startup():
-        speak(_STARTUP_MSG)
-
-    threading.Thread(target=_speak_startup, daemon=True).start()
-    root.after(400, lambda: ui.add_message("jarvis", _STARTUP_MSG))
-
-    # ── Run UI (blocks until window is closed) ─────────────────────────────
+    # ── Keep main thread alive ─────────────────────────────────────────────
+    stop_event = threading.Event()
     try:
-        ui.run()
+        while not stop_event.wait(timeout=1):
+            pass
     except KeyboardInterrupt:
         print("\n[Jarvis] Shutting down.")
     finally:
