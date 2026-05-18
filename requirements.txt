@@ -1,0 +1,11 @@
+faster-whisper
+pyaudio
+openwakeword
+pygame
+ollama
+google-auth-oauthlib
+google-api-python-client
+duckduckgo-search
+requests
+piper-tts
+pynput

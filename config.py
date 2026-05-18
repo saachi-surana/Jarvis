@@ -1,0 +1,8 @@
+OLLAMA_MODEL = "llama3.2"
+OLLAMA_URL = "http://localhost:11434"
+STUDYSYNC_URL = "http://localhost:8000"
+NOTION_PLANNER_DIR = "~/.notion-planner"
+WAKE_WORD = "jarvis"
+WEATHER_CITY = "Seattle"
+PIPER_BINARY = "~/Projects/Jarvis/piper/piper"
+PIPER_MODEL  = "~/Projects/Jarvis/voices/en_US-ryan-high.onnx"
