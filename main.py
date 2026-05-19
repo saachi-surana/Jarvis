@@ -36,16 +36,23 @@ def _check_ollama() -> bool:
         return False
 
 
-def process_input(text: str, on_response=None):
-    """
-    Shared pipeline entry point: text → brain → router → speaker.
-    Called by the UI (text entry, mic button) and the wake-word listener thread.
+_DISMISS_PHRASES = ("thank you", "thanks", "that's all", "thats all")
+_DISMISS_REPLY   = "Of course. I'll be here when you need me."
 
-    on_response: optional callable(response_str) invoked after speak() completes,
-                 used by the UI to display the response without blocking the main thread.
-    """
+
+def process_input(text: str, on_response=None):
     if not text or not text.strip():
         return
+
+    # Farewell — skip the brain and return to wake-word standby
+    lower = text.strip().lower()
+    if any(phrase in lower for phrase in _DISMISS_PHRASES):
+        print(f"[You]: {text}")
+        speak(_DISMISS_REPLY)
+        if on_response:
+            on_response(_DISMISS_REPLY)
+        return
+
     print(f"[You]: {text}")
     raw = _brain.think(text)
     if raw is None:
@@ -76,14 +83,15 @@ def main():
     listener = Listener(on_audio_callback=lambda _: None)
 
     # ── Status report ──────────────────────────────────────────────────────
-    from config import PIPER_BINARY, PIPER_MODEL
-    piper_bin   = os.path.expanduser(PIPER_BINARY)
+    from config import PIPER_MODEL
     piper_model = os.path.expanduser(PIPER_MODEL)
-    voice_status = (
-        "Piper TTS"
-        if os.path.isfile(piper_bin) and os.path.isfile(piper_model)
-        else "macOS 'say' (Samantha) fallback"
-    )
+    elevenlabs_key = os.environ.get("ELEVENLABS_API_KEY", "").strip()
+    if elevenlabs_key:
+        voice_status = "ElevenLabs (Josh)"
+    elif os.path.isfile(piper_model):
+        voice_status = "Piper TTS (Alan, en_GB)"
+    else:
+        voice_status = "macOS 'say' (Daniel) fallback"
     print("\n=== Jarvis System Status ===")
     print(f"  Ollama          ✓  ({OLLAMA_URL})")
     print(f"  Wake word       {listener.wake_word_status}")
