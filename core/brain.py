@@ -14,13 +14,17 @@ SYSTEM_PROMPT = (
     "When a request requires a skill, respond with ONLY a JSON object and nothing else. "
     "No words before it, no words after it, no explanation. Just the raw JSON.\n\n"
     "Examples:\n"
-    '  add task → {"action": "tasks", "params": {"action": "add", "text": "Buy milk", "date": "2024-01-15"}}\n'
-    '  list tasks → {"action": "tasks", "params": {"action": "list"}}\n'
-    '  tasks due today → {"action": "tasks", "params": {"action": "list_today"}}\n'
-    '  mark task done → {"action": "tasks", "params": {"action": "done", "text": "Buy milk"}}\n'
-    '  what\'s on my calendar → {"action": "calendar", "params": {"query": "today"}}\n'
-    '  calendar this week → {"action": "calendar", "params": {"query": "week"}}\n'
-    '  next event → {"action": "calendar", "params": {"query": "next_event"}}\n'
+    '  add studying 9:30-10:30pm → {"action": "tasks", "params": {"action": "add", "text": "Studying 9:30-10:30pm", "date": "TODAY"}}\n'
+    '  add buy milk tomorrow → {"action": "tasks", "params": {"action": "add", "text": "Buy milk", "date": "YYYY-MM-DD"}}\n'
+    '  what are my tasks / show tasks → {"action": "tasks", "params": {"action": "list"}}\n'
+    '  tasks for today → {"action": "tasks", "params": {"action": "list_today"}}\n'
+    '  mark studying done → {"action": "tasks", "params": {"action": "done", "text": "studying"}}\n'
+    '  what\'s on my calendar / what do I have today → {"action": "calendar", "params": {"query": "today"}}\n'
+    '  what do I have tomorrow → {"action": "calendar", "params": {"query": "tomorrow"}}\n'
+    '  calendar this week / what\'s this week → {"action": "calendar", "params": {"query": "week"}}\n'
+    '  next event / what\'s next → {"action": "calendar", "params": {"query": "next_event"}}\n'
+    "  IMPORTANT: for calendar, the query value MUST be exactly one of: today, tomorrow, next_event, week. Never put freeform text in the calendar query.\n"
+    "  IMPORTANT: for tasks add, if the task is for today use \"TODAY\" as the date value exactly.\n"
     '  open Spotify → {"action": "system", "params": {"action": "open_app", "app": "Spotify"}}\n'
     '  what time is it → {"action": "system", "params": {"action": "get_time"}}\n'
     '  set volume to 50 → {"action": "system", "params": {"action": "set_volume", "level": 50}}\n'

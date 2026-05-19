@@ -141,7 +141,24 @@ def execute(params: dict) -> str:
             events = _fetch_events(service, start, start + timedelta(days=7))
             return _friendly_list(events, "this week", include_date=True)
 
-        return f"Unknown calendar query '{query}'. Try: today, tomorrow, next_event, week."
+        # Unrecognised query — try to guess intent, default to today
+        if "tomorrow" in query:
+            start  = _local_midnight(now) + timedelta(days=1)
+            events = _fetch_events(service, start, start + timedelta(days=1))
+            return _friendly_list(events, "tomorrow")
+        if "week" in query:
+            start  = _local_midnight(now)
+            events = _fetch_events(service, start, start + timedelta(days=7))
+            return _friendly_list(events, "this week", include_date=True)
+        if "next" in query:
+            events = _fetch_events(service, now, now + timedelta(days=30))
+            if not events:
+                return "No upcoming events in the next 30 days."
+            return f"Your next event: {_format_event(events[0], include_date=True)}"
+        # Default: today
+        start  = _local_midnight(now)
+        events = _fetch_events(service, start, start + timedelta(days=1))
+        return _friendly_list(events, "today")
 
     except Exception as e:
         return f"Calendar error: {e}"

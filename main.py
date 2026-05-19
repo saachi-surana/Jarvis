@@ -37,7 +37,7 @@ def _check_ollama() -> bool:
 
 
 _DISMISS_PHRASES = ("thank you", "thanks", "that's all", "thats all")
-_DISMISS_REPLY   = "Of course. I'll be here when you need me."
+_DISMISS_REPLY   = "Of course, Saachi. I'll be here when you need me."
 
 
 def process_input(text: str, on_response=None):

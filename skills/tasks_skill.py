@@ -111,6 +111,8 @@ def _do_add(conn: sqlite3.Connection, params: dict) -> str:
     date_str = params.get("date")
     if date_str:
         date_str = str(date_str).strip() or None
+        if date_str and date_str.upper() == "TODAY":
+            date_str = date.today().isoformat()
     created_at = datetime.now().isoformat(timespec="seconds")
     # Place new task at end of sort order
     max_order = conn.execute("SELECT MAX(sort_order) FROM tasks").fetchone()[0]
