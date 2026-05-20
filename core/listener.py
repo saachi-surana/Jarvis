@@ -15,12 +15,13 @@ import pygame
 SAMPLE_RATE          = 16000
 CHANNELS             = 1
 FORMAT               = pyaudio.paInt16
-CHUNK                = 512     # frames per read during command recording
-DETECTION_CHUNK      = 1280    # exactly 80 ms at 16 kHz — required by openwakeword
+CHUNK                = 512      # frames per read during command recording
+DETECTION_CHUNK      = 1280     # exactly 80 ms at 16 kHz — required by openwakeword
 WAKE_SCORE_THRESHOLD = 0.5
-SILENCE_THRESHOLD    = 500     # RMS below this is silence
+SILENCE_THRESHOLD    = 900      # RMS below this is silence (raised from 500 to filter noise)
 SILENCE_DURATION     = 1.5     # seconds of silence to end recording
-MAX_RECORD_SECONDS   = 10
+MAX_RECORD_SECONDS   = 12
+MIN_RECORD_SECONDS   = 1.0      # discard recordings shorter than this
 
 
 def _generate_chime(frequency: int = 880, duration_ms: int = 200) -> bytes:
@@ -42,22 +43,38 @@ def _play_chime():
         print(f"[Listener] Chime failed: {e}")
 
 
-def _record_until_silence(stream: pyaudio.Stream) -> bytes:
-    frames = []
-    silent = 0
-    max_chunks     = int(SAMPLE_RATE / CHUNK * MAX_RECORD_SECONDS)
-    silence_needed = int(SAMPLE_RATE / CHUNK * SILENCE_DURATION)
+def _rms(data: bytes) -> float:
+    shorts = struct.unpack(f"{len(data) // 2}h", data)
+    return math.sqrt(sum(s * s for s in shorts) / len(shorts)) if shorts else 0.0
+
+
+def _record_until_silence(stream: pyaudio.Stream) -> bytes | None:
+    """
+    Record until SILENCE_DURATION of consecutive silence or MAX_RECORD_SECONDS.
+    Returns the audio bytes, or None if the recording is too short to be real speech.
+    """
+    frames          = []
+    silent_chunks   = 0
+    max_chunks      = int(SAMPLE_RATE / CHUNK * MAX_RECORD_SECONDS)
+    silence_needed  = int(SAMPLE_RATE / CHUNK * SILENCE_DURATION)
+    min_chunks      = int(SAMPLE_RATE / CHUNK * MIN_RECORD_SECONDS)
 
     for _ in range(max_chunks):
-        data   = stream.read(CHUNK, exception_on_overflow=False)
+        data = stream.read(CHUNK, exception_on_overflow=False)
         frames.append(data)
-        shorts = struct.unpack(f"{len(data) // 2}h", data)
-        rms    = math.sqrt(sum(s * s for s in shorts) / len(shorts)) if shorts else 0
-        silent = silent + 1 if rms < SILENCE_THRESHOLD else 0
-        if silent >= silence_needed:
+        rms  = _rms(data)
+        silent_chunks = silent_chunks + 1 if rms < SILENCE_THRESHOLD else 0
+        if silent_chunks >= silence_needed:
             break
 
-    return b"".join(frames)
+    if len(frames) < min_chunks:
+        print(f"[Listener] Recording too short ({len(frames)} chunks < {min_chunks} min) — discarding.")
+        return None
+
+    audio = b"".join(frames)
+    duration_s = len(audio) / (SAMPLE_RATE * 2)  # 2 bytes per sample
+    print(f"[Listener] Recorded {duration_s:.2f}s of audio.")
+    return audio
 
 
 class Listener:
@@ -94,16 +111,15 @@ class Listener:
         print("[Listener] Listening for wake word...")
         try:
             while not self._stop_event.is_set():
-                pcm        = stream.read(DETECTION_CHUNK, exception_on_overflow=False)
-                chunk_np   = np.frombuffer(pcm, dtype=np.int16)
-                scores     = self._oww_model.predict(chunk_np)
+                pcm      = stream.read(DETECTION_CHUNK, exception_on_overflow=False)
+                chunk_np = np.frombuffer(pcm, dtype=np.int16)
+                scores   = self._oww_model.predict(chunk_np)
 
                 if any(s >= WAKE_SCORE_THRESHOLD for s in scores.values()):
                     print("[Listener] Wake word detected.")
                     _play_chime()
                     self._oww_model.reset()
 
-                    # Pause detection stream, record command, resume
                     stream.stop_stream()
                     rec = pa.open(
                         rate=SAMPLE_RATE,
@@ -116,7 +132,10 @@ class Listener:
                     rec.stop_stream()
                     rec.close()
 
-                    self.on_audio(audio_bytes)
+                    if audio_bytes is not None:
+                        self.on_audio(audio_bytes)
+                    else:
+                        print("[Listener] Discarded short/silent recording after wake word.")
                     stream.start_stream()
         finally:
             stream.stop_stream()
@@ -138,7 +157,10 @@ class Listener:
         stream.stop_stream()
         stream.close()
         pa.terminate()
-        self.on_audio(audio_bytes)
+        if audio_bytes is not None:
+            self.on_audio(audio_bytes)
+        else:
+            print("[Listener] Discarded short/silent recording from mic button.")
 
     def start(self):
         if self._wake_word_active:

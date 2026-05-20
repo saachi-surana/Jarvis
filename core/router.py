@@ -1,9 +1,8 @@
 import json
 import importlib
 import os
-import re
 import sys
-from typing import Optional, Union
+from typing import Union
 
 SKILL_MAP = {
     "calendar":  "calendar_skill",
@@ -34,17 +33,20 @@ class Router:
             return "I didn't quite understand that. Could you rephrase?"
 
         if isinstance(result, dict) and "action" in result:
-            return self._dispatch_skill(result["action"], result.get("params", {}))
+            action = result["action"]
+            params = result.get("params", {})
+            # Intercept: if system skill gets a music-sounding action, redirect to spotify
+            if action == "system" and params.get("action") in (
+                "play_music", "play_song", "play_artist", "play", "pause_music",
+                "pause", "next_track", "previous_track", "skip",
+            ):
+                print(f"[Router] Intercepting system music action → spotify: {params}")
+                return self._dispatch_skill("spotify", params)
+            return self._dispatch_skill(action, params)
 
         return brain_output
 
     def _try_parse_json(self, text: str) -> Union[dict, object, None]:
-        """
-        Returns:
-          dict   — valid skill JSON found
-          _MALFORMED — JSON-shaped content found but couldn't parse
-          None   — no JSON detected, treat as plain text
-        """
         text = text.strip()
 
         # Strip markdown fences
@@ -62,12 +64,11 @@ class Router:
             except (json.JSONDecodeError, ValueError):
                 pass
 
-        # Find the first { ... } block anywhere (handles extra prose around it)
+        # Find the first { ... } block anywhere
         brace_pos = text.find("{")
         if brace_pos == -1:
-            return None  # no JSON at all — plain text
+            return None
 
-        # Walk to find matching closing brace
         depth = 0
         end_pos = -1
         for i, ch in enumerate(text[brace_pos:], brace_pos):
@@ -80,7 +81,7 @@ class Router:
                     break
 
         if end_pos == -1:
-            return _MALFORMED  # unclosed brace
+            return _MALFORMED
 
         candidate = text[brace_pos:end_pos + 1]
         try:
@@ -88,16 +89,19 @@ class Router:
             if isinstance(obj, dict):
                 return obj
         except (json.JSONDecodeError, ValueError):
-            return _MALFORMED  # found braces but JSON is broken
+            return _MALFORMED
 
         return None
 
     def _dispatch_skill(self, action: str, params: dict) -> str:
+        print(f"[Router] dispatch → action={action!r}  params={params}")
         module_name = SKILL_MAP.get(action)
         if not module_name:
             return f"I don't have a skill for '{action}' yet."
         try:
             module = importlib.import_module(module_name)
+            # Force reload so code changes take effect without restart
+            importlib.reload(module)
             execute_fn = getattr(module, "execute", None)
             if execute_fn is None:
                 return f"Skill '{action}' is missing an execute() function."
@@ -106,7 +110,9 @@ class Router:
             if asyncio.iscoroutine(result):
                 result = asyncio.get_event_loop().run_until_complete(result)
             return str(result)
-        except ModuleNotFoundError:
+        except ModuleNotFoundError as e:
+            print(f"[Router] ModuleNotFoundError for {action}: {e}")
             return f"Skill '{action}' hasn't been built yet."
         except Exception as e:
+            print(f"[Router] Exception in {action}: {e}")
             return f"Something went wrong with the {action} skill: {e}"
