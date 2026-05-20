@@ -108,6 +108,39 @@ def _friendly_list(events: list, label: str, include_date: bool = False) -> str:
     return f"Here's what you have {label}:\n" + "\n".join(f"  • {l}" for l in lines)
 
 
+def _create_event(service, params: dict) -> str:
+    title       = str(params.get("title", "")).strip()
+    date_str    = str(params.get("date", "")).strip()
+    start_time  = str(params.get("start_time", "")).strip()
+    end_time    = str(params.get("end_time", "")).strip()
+    description = str(params.get("description", "")).strip()
+
+    if not title or not date_str or not start_time or not end_time:
+        return "Please provide title, date, start_time, and end_time to create an event."
+
+    local_tz = datetime.now().astimezone().tzinfo
+    try:
+        start_dt = datetime.fromisoformat(f"{date_str}T{start_time}").replace(tzinfo=local_tz)
+        end_dt   = datetime.fromisoformat(f"{date_str}T{end_time}").replace(tzinfo=local_tz)
+    except ValueError as e:
+        return f"Invalid date/time format: {e}"
+
+    body: dict = {
+        "summary": title,
+        "start":   {"dateTime": start_dt.isoformat(), "timeZone": str(local_tz)},
+        "end":     {"dateTime": end_dt.isoformat(),   "timeZone": str(local_tz)},
+    }
+    if description:
+        body["description"] = description
+
+    service.events().insert(calendarId="primary", body=body).execute()
+
+    friendly_date = start_dt.strftime("%A, %b %-d")
+    friendly_start = start_dt.strftime("%-I:%M %p")
+    friendly_end   = end_dt.strftime("%-I:%M %p")
+    return f"Added '{title}' on {friendly_date} from {friendly_start} to {friendly_end}."
+
+
 def execute(params: dict) -> str:
     try:
         service = _build_service()
@@ -115,6 +148,12 @@ def execute(params: dict) -> str:
         return str(e)
     except Exception as e:
         return f"Couldn't connect to Google Calendar: {e}"
+
+    if params.get("action") == "create":
+        try:
+            return _create_event(service, params)
+        except Exception as e:
+            return f"Calendar error creating event: {e}"
 
     query = str(params.get("query", "today")).strip().lower()
     now   = datetime.now().astimezone()

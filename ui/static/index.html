@@ -12,7 +12,7 @@
   --text:#e0def4;--muted:#6e6a86;--dim:#2a2845;
   --mono:'Monaco','Courier New',monospace;
 }
-html,body{width:100%;height:100%;overflow:hidden;background:var(--bg2);
+html,body{width:100%;height:100%;overflow:hidden;background:#0d0b14;
   font-family:var(--mono);color:var(--text);-webkit-font-smoothing:antialiased;user-select:none}
 body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9990;
   background:repeating-linear-gradient(to bottom,transparent 0,transparent 2px,rgba(0,0,0,.28) 2px,rgba(0,0,0,.28) 3px)}
@@ -20,8 +20,8 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9990;
   background:linear-gradient(to bottom,transparent,rgba(156,207,216,.14) 50%,transparent);
   animation:sbeam 10s linear infinite}
 @keyframes sbeam{from{top:-4px}to{top:100vh}}
-#bg-cv,#rings-cv,#circuit-cv{position:fixed;inset:0;pointer-events:none;width:100%;height:100%}
-#bg-cv{z-index:0}#rings-cv{z-index:1}#circuit-cv{z-index:5}
+#bg-cv,#rings-cv,#particle-cv,#circuit-cv{position:fixed;inset:0;pointer-events:none;width:100%;height:100%}
+#bg-cv{z-index:0}#rings-cv{z-index:1}#particle-cv{z-index:2}#circuit-cv{z-index:5}
 #flash-overlay{position:fixed;inset:0;pointer-events:none;z-index:9980;opacity:0;
   background:radial-gradient(ellipse at 50% 40%,rgba(156,207,216,.13) 0,transparent 65%);
   transition:opacity .07s}
@@ -56,27 +56,27 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9990;
 #layout.show{opacity:1}
 
 /* TOP BAR */
-#top-bar{height:50px;flex-shrink:0;position:relative;background:rgba(4,4,14,.92);
-  border-bottom:1px solid rgba(156,207,216,.22);z-index:20;
-  box-shadow:0 0 24px rgba(156,207,216,.07)}
+#top-bar{height:50px;flex-shrink:0;position:relative;background:rgba(4,4,14,.94);
+  border-bottom:1px solid rgba(156,207,216,.45);z-index:20;
+  box-shadow:0 0 30px rgba(156,207,216,.18),0 0 60px rgba(156,207,216,.08)}
 #top-bar-inner{display:flex;align-items:center;justify-content:space-between;height:100%;padding:0 16px}
 #top-left{display:flex;flex-direction:column;gap:0;min-width:170px}
 #clock-time{font-size:19px;font-weight:bold;letter-spacing:3px;color:var(--foam);
-  text-shadow:0 0 6px var(--foam),0 0 18px rgba(156,207,216,.55)}
+  text-shadow:0 0 4px #fff,0 0 10px var(--foam),0 0 20px var(--foam),0 0 40px rgba(156,207,216,.7),0 0 80px rgba(156,207,216,.4)}
 #clock-date{font-size:6.5px;letter-spacing:2px;color:var(--muted)}
 #top-center{display:flex;flex-direction:column;align-items:center;gap:1px}
-#main-title{font-size:21px;font-weight:bold;letter-spacing:16px;color:var(--foam);
-  text-shadow:0 0 4px #fff,0 0 12px var(--foam),0 0 30px var(--foam),0 0 65px rgba(156,207,216,.8),0 0 130px rgba(156,207,216,.4);
+#main-title{font-size:21px;font-weight:bold;letter-spacing:16px;color:#fff;
+  text-shadow:0 0 4px #fff,0 0 10px #fff,0 0 20px var(--foam),0 0 40px var(--foam),0 0 80px var(--foam),0 0 140px rgba(156,207,216,.7),0 0 240px rgba(156,207,216,.4);
   opacity:0;animation:tin .4s ease-out 3.4s forwards}
 #sub-title{font-size:6px;letter-spacing:4px;color:var(--muted);
   opacity:0;animation:tin .4s ease-out 3.6s forwards}
 @keyframes tin{to{opacity:1}}
 #top-right{display:flex;flex-direction:column;align-items:flex-end;gap:0;min-width:170px}
-#ver-tag{font-size:8.5px;letter-spacing:2px;color:var(--foam);text-shadow:0 0 8px rgba(156,207,216,.45)}
+#ver-tag{font-size:8.5px;letter-spacing:2px;color:var(--foam);text-shadow:0 0 6px var(--foam),0 0 14px rgba(156,207,216,.6),0 0 28px rgba(156,207,216,.35)}
 #build-tag{font-size:6.5px;letter-spacing:2px;color:var(--muted)}
 #top-glow-line{position:absolute;bottom:0;left:0;right:0;height:1px;
-  background:linear-gradient(to right,transparent 0,var(--foam) 20%,var(--foam) 80%,transparent 100%);
-  box-shadow:0 0 8px rgba(156,207,216,.5),0 0 22px rgba(156,207,216,.25);
+  background:linear-gradient(to right,transparent 0,var(--foam) 20%,#fff 50%,var(--foam) 80%,transparent 100%);
+  box-shadow:0 0 10px rgba(156,207,216,.9),0 0 24px rgba(156,207,216,.6),0 0 50px rgba(156,207,216,.35),0 0 100px rgba(156,207,216,.15);
   animation:tlp 2.8s ease-in-out infinite alternate}
 @keyframes tlp{from{opacity:.65}to{opacity:1}}
 
@@ -85,15 +85,15 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9990;
 
 /* SIDE COLUMNS */
 .side-col{width:20%;flex-shrink:0;display:flex;flex-direction:column;overflow:hidden;
-  background:linear-gradient(180deg,rgba(7,5,20,.93),rgba(4,4,14,.97));
-  box-shadow:inset 0 0 40px rgba(156,207,216,.025),0 0 12px rgba(156,207,216,.06)}
-#left-col{border-right:1px solid rgba(156,207,216,.18)}
-#right-col{border-left:1px solid rgba(156,207,216,.18)}
+  background:linear-gradient(180deg,rgba(7,5,20,.95),rgba(4,4,14,.98));
+  box-shadow:0 0 20px rgba(156,207,216,.18),0 0 50px rgba(156,207,216,.08),inset 0 0 20px rgba(156,207,216,.06),inset 0 0 60px rgba(156,207,216,.025)}
+#left-col{border-right:2px solid rgba(156,207,216,.45);box-shadow:0 0 20px rgba(156,207,216,.2),0 0 50px rgba(156,207,216,.08),inset 0 0 20px rgba(156,207,216,.06),4px 0 30px rgba(156,207,216,.12)}
+#right-col{border-left:2px solid rgba(156,207,216,.45);box-shadow:0 0 20px rgba(156,207,216,.2),0 0 50px rgba(156,207,216,.08),inset 0 0 20px rgba(156,207,216,.06),-4px 0 30px rgba(156,207,216,.12)}
 .psec{flex-shrink:0;border-bottom:1px solid rgba(42,40,69,.85);padding:5px 8px 6px}
 .psec.grow{flex:1;overflow:hidden;display:flex;flex-direction:column;min-height:0}
 .plbl{font-size:6px;letter-spacing:3px;color:var(--foam);margin-bottom:3px;padding-bottom:3px;
-  border-bottom:1px solid rgba(156,207,216,.18);font-weight:bold;
-  text-shadow:0 0 6px var(--foam),0 0 14px rgba(156,207,216,.4)}
+  border-bottom:1px solid rgba(156,207,216,.35);font-weight:bold;
+  text-shadow:0 0 4px #fff,0 0 8px var(--foam),0 0 18px var(--foam),0 0 36px rgba(156,207,216,.6)}
 .prow{display:flex;justify-content:space-between;align-items:center;
   font-size:7px;letter-spacing:1px;color:rgba(156,207,216,.6);line-height:2}
 .pval{color:var(--text);opacity:.8;font-size:7px;text-align:right}
@@ -133,14 +133,14 @@ canvas.blk{display:block;width:100%}
 @keyframes blink{50%{opacity:0}}
 
 /* BOTTOM BAR */
-#bottom-bar{height:64px;background:rgba(4,4,14,.97);border-top:1px solid rgba(156,207,216,.26);
+#bottom-bar{height:64px;background:rgba(4,4,14,.97);border-top:2px solid rgba(156,207,216,.45);
   display:flex;flex-direction:column;flex-shrink:0;z-index:10;
-  box-shadow:0 0 20px rgba(156,207,216,.1)}
+  box-shadow:0 0 20px rgba(156,207,216,.25),0 0 50px rgba(156,207,216,.1),0 -4px 30px rgba(156,207,216,.12)}
 #status-strip{height:18px;display:flex;align-items:center;justify-content:space-between;
   padding:0 12px;border-bottom:1px solid rgba(42,40,69,.85)}
 #status-left{display:flex;align-items:center;gap:8px;font-size:7px;letter-spacing:2px;color:var(--muted)}
 .sdot{width:5px;height:5px;border-radius:50%;background:var(--foam);flex-shrink:0;
-  box-shadow:0 0 6px var(--foam),0 0 12px rgba(156,207,216,.4)}
+  box-shadow:0 0 8px var(--foam),0 0 20px var(--foam),0 0 40px rgba(156,207,216,.5)}
 .sdot.active{animation:dpulse .55s ease-in-out infinite alternate}
 .sdot.listening{background:var(--iris);box-shadow:0 0 6px var(--iris),0 0 14px rgba(196,167,231,.5)}
 @keyframes dpulse{from{opacity:.3}to{opacity:1;box-shadow:0 0 14px var(--foam),0 0 28px rgba(156,207,216,.4)}}
@@ -175,6 +175,7 @@ canvas.blk{display:block;width:100%}
 
 <canvas id="bg-cv"></canvas>
 <canvas id="rings-cv"></canvas>
+<canvas id="particle-cv"></canvas>
 <canvas id="circuit-cv"></canvas>
 <div id="scan-beam"></div>
 <div id="flash-overlay"></div>
@@ -363,9 +364,15 @@ function drawRingNodes(ts){
       ringsCtx.save();ringsCtx.translate(cx,cy);ringsCtx.rotate(r.a);
       ringsCtx.beginPath();ringsCtx.arc(0,0,r.r,0,Math.PI*2);
       ringsCtx.setLineDash(r.d);
-      ringsCtx.strokeStyle=`rgba(${r.rgb},${isThinking?Math.min(r.al*1.7,.55):r.al})`;
+      // Outer glow pass
+      ringsCtx.strokeStyle=`rgba(${r.rgb},${isThinking?Math.min(r.al*1.4,.4):r.al*.6})`;
+      ringsCtx.lineWidth=8;
+      ringsCtx.shadowColor=`rgba(${r.rgb},1)`;ringsCtx.shadowBlur=isThinking?40:22;
+      ringsCtx.stroke();ringsCtx.shadowBlur=0;
+      // Sharp inner pass
+      ringsCtx.strokeStyle=`rgba(${r.rgb},${isThinking?Math.min(r.al*1.7,.65):r.al})`;
       ringsCtx.lineWidth=1.2;
-      ringsCtx.shadowColor=`rgba(${r.rgb},.5)`;ringsCtx.shadowBlur=isThinking?10:4;
+      ringsCtx.shadowColor=`rgba(${r.rgb},.8)`;ringsCtx.shadowBlur=isThinking?16:8;
       ringsCtx.stroke();ringsCtx.shadowBlur=0;ringsCtx.setLineDash([]);ringsCtx.restore();
     });
     ringsCtx.beginPath();ringsCtx.arc(cx,cy,2.5,0,Math.PI*2);
@@ -375,6 +382,34 @@ function drawRingNodes(ts){
   requestAnimationFrame(drawRingNodes);
 }
 requestAnimationFrame(drawRingNodes);
+
+/* ── PARTICLES ── */
+const parCv=document.getElementById('particle-cv'),parCtx=parCv.getContext('2d');
+function resizePar(){parCv.width=innerWidth;parCv.height=innerHeight;}
+window.addEventListener('resize',resizePar);resizePar();
+const PARTS=Array.from({length:220},()=>({
+  x:Math.random()*innerWidth,y:Math.random()*innerHeight,
+  vy:-(0.15+Math.random()*.55),vx:(Math.random()-.5)*.25,
+  a:0.04+Math.random()*.35,
+  s:.6+Math.random()*2.2,
+  iris:Math.random()>.65,
+}));
+function drawParticles(){
+  parCtx.clearRect(0,0,parCv.width,parCv.height);
+  PARTS.forEach(p=>{
+    p.x+=p.vx;p.y+=p.vy;p.a-=.0006;
+    if(p.y<-4||p.a<=0){
+      p.x=Math.random()*parCv.width;p.y=parCv.height+4;
+      p.a=0.06+Math.random()*.3;p.vy=-(0.15+Math.random()*.55);p.iris=Math.random()>.65;
+    }
+    const rgb=p.iris?'196,167,231':'156,207,216';
+    parCtx.beginPath();parCtx.arc(p.x,p.y,p.s,0,Math.PI*2);
+    parCtx.fillStyle=`rgba(${rgb},${p.a})`;
+    parCtx.shadowColor=`rgba(${rgb},${p.a*2})`;parCtx.shadowBlur=p.s>1.5?10:5;
+    parCtx.fill();parCtx.shadowBlur=0;
+  });
+}
+setInterval(drawParticles,50);
 
 /* ── ARC REACTOR ── */
 const rcv=document.getElementById('reactor-cv'),rctx=rcv.getContext('2d');
@@ -470,15 +505,23 @@ function drawReactor(ts){
     rctx.arc(0,0,RINGS[2].r,sa+.3,sa,true);rctx.closePath();
     rctx.fillStyle=isThinking?'rgba(196,167,231,.1)':'rgba(196,167,231,.04)';rctx.fill();
   }
-  // Radar sweep
-  for(let i=50;i>=0;i--){
-    const a0=sweepA-.8+i/50*.8,a1=a0+.8/50+.01,op=i/50*(isThinking?.32:.2);
+  // Radar sweep — wider trail, brighter
+  for(let i=60;i>=0;i--){
+    const a0=sweepA-1.4+i/60*1.4,a1=a0+1.4/60+.01,op=i/60*(isThinking?.55:.38);
     rctx.beginPath();rctx.moveTo(0,0);rctx.arc(0,0,outerR,a0,a1);rctx.closePath();
     rctx.fillStyle=`rgba(156,207,216,${op})`;rctx.fill();
   }
+  // Bright inner sweep
+  for(let i=20;i>=0;i--){
+    const a0=sweepA-.3+i/20*.3,a1=a0+.3/20+.01,op=i/20*(isThinking?.7:.5);
+    rctx.beginPath();rctx.moveTo(0,0);rctx.arc(0,0,outerR*.6,a0,a1);rctx.closePath();
+    rctx.fillStyle=`rgba(255,255,255,${op*.3})`;rctx.fill();
+  }
   rctx.beginPath();rctx.moveTo(0,0);rctx.lineTo(Math.cos(sweepA)*outerR,Math.sin(sweepA)*outerR);
-  rctx.strokeStyle=`rgba(156,207,216,${isThinking?1:.88})`;rctx.lineWidth=1.5;
-  rctx.shadowColor='rgba(156,207,216,.9)';rctx.shadowBlur=14;rctx.stroke();rctx.shadowBlur=0;
+  rctx.strokeStyle='rgba(255,255,255,.9)';rctx.lineWidth=2;
+  rctx.shadowColor='rgba(156,207,216,1)';rctx.shadowBlur=30;rctx.stroke();rctx.shadowBlur=0;
+  rctx.strokeStyle=`rgba(156,207,216,${isThinking?1:.9})`;rctx.lineWidth=1;
+  rctx.shadowColor='rgba(156,207,216,1)';rctx.shadowBlur=20;rctx.stroke();rctx.shadowBlur=0;
 
   // Rings
   RINGS.forEach((ring,i)=>{
@@ -495,7 +538,16 @@ function drawReactor(ts){
     rctx.beginPath();rctx.arc(0,0,ring.r,0,arcEnd);
     ring.solid?rctx.setLineDash([]):rctx.setLineDash(ring.dash);
     rctx.strokeStyle=`rgba(${aRgb},${am})`;rctx.lineWidth=ring.r<40?2.8:ring.r<80?2:1.5;
-    rctx.shadowColor=`rgba(${aRgb},${am*.7})`;rctx.shadowBlur=isThinking?24:ring.solid?14:6;
+    // Outer bloom pass
+    rctx.strokeStyle=`rgba(${aRgb},${am*.45})`;
+    rctx.lineWidth=(ring.r<40?2.8:ring.r<80?2:1.5)+10;
+    rctx.shadowColor=`rgba(${aRgb},1)`;rctx.shadowBlur=isThinking?50:30;
+    rctx.stroke();rctx.shadowBlur=0;rctx.setLineDash([]);
+    // Sharp crisp pass
+    rctx.beginPath();rctx.arc(0,0,ring.r,0,arcEnd);
+    ring.solid?rctx.setLineDash([]):rctx.setLineDash(ring.dash);
+    rctx.strokeStyle=`rgba(${aRgb},${am})`;rctx.lineWidth=ring.r<40?2.8:ring.r<80?2:1.5;
+    rctx.shadowColor=`rgba(${aRgb},${am*.9})`;rctx.shadowBlur=isThinking?24:ring.solid?16:8;
     rctx.stroke();rctx.shadowBlur=0;rctx.setLineDash([]);
     if(ring.notch>0&&frac>=1){
       const nc=`rgba(${aRgb},${am*.85})`;
@@ -520,13 +572,27 @@ function drawReactor(ts){
     }
   }
 
-  // Center core
+  // Center core — stacked bloom
   const cp=Math.sin(ts*(isListening?.009:.004));
   const cr=isListening?7+cp*3:isThinking?8:6,cc=isListening?'196,167,231':'156,207,216';
+  const bloomLayers=[
+    {r:cr+40,al:.04,lw:28},{r:cr+28,al:.09,lw:20},{r:cr+18,al:.16,lw:14},
+    {r:cr+11,al:.26,lw:8}, {r:cr+5, al:.42,lw:4},
+  ];
+  bloomLayers.forEach(b=>{
+    rctx.beginPath();rctx.arc(0,0,b.r,0,Math.PI*2);
+    rctx.strokeStyle=`rgba(${cc},${b.al})`;rctx.lineWidth=b.lw;
+    rctx.shadowColor=`rgba(${cc},1)`;rctx.shadowBlur=40;rctx.stroke();rctx.shadowBlur=0;
+  });
+  // Outer ring
+  rctx.beginPath();rctx.arc(0,0,cr+8,0,Math.PI*2);
+  rctx.strokeStyle=`rgba(${cc},.55)`;rctx.lineWidth=2.5;
+  rctx.shadowColor=`rgba(${cc},1)`;rctx.shadowBlur=30;rctx.stroke();rctx.shadowBlur=0;
+  // Core fill — pure white center
   rctx.beginPath();rctx.arc(0,0,cr,0,Math.PI*2);
-  rctx.fillStyle=`rgba(${cc},.95)`;rctx.shadowColor=`rgba(${cc},1)`;rctx.shadowBlur=52;rctx.fill();rctx.shadowBlur=0;
-  rctx.beginPath();rctx.arc(0,0,cr+6,0,Math.PI*2);
-  rctx.strokeStyle=`rgba(${cc},.32)`;rctx.lineWidth=3;rctx.shadowColor=`rgba(${cc},.6)`;rctx.shadowBlur=20;rctx.stroke();rctx.shadowBlur=0;
+  rctx.fillStyle='rgba(255,255,255,1)';rctx.shadowColor=`rgba(${cc},1)`;rctx.shadowBlur=60;rctx.fill();rctx.shadowBlur=0;
+  rctx.beginPath();rctx.arc(0,0,cr*.6,0,Math.PI*2);
+  rctx.fillStyle='rgba(255,255,255,1)';rctx.shadowColor='rgba(255,255,255,1)';rctx.shadowBlur=30;rctx.fill();rctx.shadowBlur=0;
 
   rctx.restore();
   requestAnimationFrame(drawReactor);
@@ -547,9 +613,18 @@ function drawGaugeAt(ctx,cx,cy,r,val,maxV,lbl,vStr,rgb){
     ctx.strokeStyle=`rgba(${rgb},${mj?.4:.15})`;ctx.lineWidth=mj?1.2:.5;ctx.stroke();
   }
   const ea=SA+val/maxV*SPAN;
+  // Outer bloom pass
   ctx.beginPath();ctx.arc(cx,cy,r-3,SA,ea);
-  ctx.strokeStyle=`rgba(${rgb},${val>80?.95:val>40?.8:.65})`;ctx.lineWidth=5;
-  ctx.shadowColor=`rgba(${rgb},.7)`;ctx.shadowBlur=14;ctx.stroke();ctx.shadowBlur=0;
+  ctx.strokeStyle=`rgba(${rgb},.5)`;ctx.lineWidth=14;
+  ctx.shadowColor=`rgba(${rgb},1)`;ctx.shadowBlur=35;ctx.stroke();ctx.shadowBlur=0;
+  // Mid glow
+  ctx.beginPath();ctx.arc(cx,cy,r-3,SA,ea);
+  ctx.strokeStyle=`rgba(${rgb},.7)`;ctx.lineWidth=8;
+  ctx.shadowColor=`rgba(${rgb},.9)`;ctx.shadowBlur=18;ctx.stroke();ctx.shadowBlur=0;
+  // Sharp crisp line on top
+  ctx.beginPath();ctx.arc(cx,cy,r-3,SA,ea);
+  ctx.strokeStyle=`rgba(${rgb},${val>80?.98:val>40?.88:.72})`;ctx.lineWidth=2;
+  ctx.shadowColor=`rgba(${rgb},1)`;ctx.shadowBlur=8;ctx.stroke();ctx.shadowBlur=0;
   const nx=cx+(r-3)*Math.cos(ea),ny=cy+(r-3)*Math.sin(ea),pp=ea+Math.PI/2;
   ctx.beginPath();ctx.moveTo(nx,ny);
   ctx.lineTo(nx+Math.cos(ea-Math.PI)*5+Math.cos(pp)*3,ny+Math.sin(ea-Math.PI)*5+Math.sin(pp)*3);
@@ -786,25 +861,39 @@ window.addEventListener('resize',()=>setTimeout(buildCircuitLines,300));
 function drawCircuitLines(){
   cirCtx.clearRect(0,0,cirCv.width,cirCv.height);
   if(!bootDone||!cirLines.length)return;
-  const al=isThinking?.09:.035;
-  cirCtx.strokeStyle=`rgba(156,207,216,${al})`;cirCtx.lineWidth=.8;cirCtx.setLineDash([4,9]);
+  const al=isThinking?.18:.08;
+  // Glow pass for lines
+  cirCtx.strokeStyle=`rgba(156,207,216,${al*.5})`;cirCtx.lineWidth=3;cirCtx.setLineDash([4,9]);
+  cirCtx.shadowColor='rgba(156,207,216,.8)';cirCtx.shadowBlur=15;
+  cirLines.forEach(l=>{cirCtx.beginPath();pcbLine(cirCtx,l.x1,l.y1,l.x2,l.y2,l.bendH);cirCtx.stroke();});
+  cirCtx.shadowBlur=0;
+  // Sharp pass
+  cirCtx.strokeStyle=`rgba(156,207,216,${al})`;cirCtx.lineWidth=.9;
+  cirCtx.shadowColor='rgba(156,207,216,.6)';cirCtx.shadowBlur=6;
   cirLines.forEach(l=>{
     cirCtx.beginPath();pcbLine(cirCtx,l.x1,l.y1,l.x2,l.y2,l.bendH);cirCtx.stroke();
     cirCtx.setLineDash([]);
     [[l.x2,l.y2],[l.bendH?l.x2:l.x1,l.bendH?l.y1:l.y2]].forEach(([jx,jy])=>{
-      cirCtx.beginPath();cirCtx.arc(jx,jy,1.6,0,Math.PI*2);
-      cirCtx.fillStyle=`rgba(156,207,216,.38)`;cirCtx.fill();
+      cirCtx.beginPath();cirCtx.arc(jx,jy,2.2,0,Math.PI*2);
+      cirCtx.fillStyle='rgba(156,207,216,.55)';
+      cirCtx.shadowColor='rgba(156,207,216,1)';cirCtx.shadowBlur=12;cirCtx.fill();cirCtx.shadowBlur=0;
     });
     cirCtx.setLineDash([4,9]);
   });
-  cirCtx.setLineDash([]);
+  cirCtx.setLineDash([]);cirCtx.shadowBlur=0;
 
+  // Traveling dots — bright white with heavy glow
   cirDots.forEach(d=>{
     d.t=(d.t+d.spd*(isThinking?2.2:1))%1;
     const l=cirLines[d.li];if(!l)return;
     const pt=ptOnPCB(l,d.t);
-    cirCtx.beginPath();cirCtx.arc(pt.x,pt.y,2.2,0,Math.PI*2);
-    cirCtx.fillStyle='rgba(196,167,231,.82)';cirCtx.shadowColor='rgba(196,167,231,.9)';cirCtx.shadowBlur=7;cirCtx.fill();cirCtx.shadowBlur=0;
+    // Outer halo
+    cirCtx.beginPath();cirCtx.arc(pt.x,pt.y,6,0,Math.PI*2);
+    cirCtx.fillStyle='rgba(255,255,255,.12)';cirCtx.shadowColor='rgba(255,255,255,.8)';cirCtx.shadowBlur=20;cirCtx.fill();cirCtx.shadowBlur=0;
+    // Core dot
+    cirCtx.beginPath();cirCtx.arc(pt.x,pt.y,2.5,0,Math.PI*2);
+    cirCtx.fillStyle='rgba(255,255,255,.98)';cirCtx.shadowColor='rgba(255,255,255,1)';cirCtx.shadowBlur=18;cirCtx.fill();
+    cirCtx.shadowColor='rgba(156,207,216,1)';cirCtx.shadowBlur=12;cirCtx.fill();cirCtx.shadowBlur=0;
   });
 }
 setInterval(drawCircuitLines,28);
