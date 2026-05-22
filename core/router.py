@@ -12,6 +12,9 @@ SKILL_MAP = {
     "web":       "web_skill",
     "timer":     "timer_skill",
     "spotify":   "spotify_skill",
+    "search":    "search_skill",
+    "browser":   "browser_skill",
+    "file":      "file_skill",
 }
 
 _MALFORMED = object()  # sentinel: JSON-like content found but couldn't parse

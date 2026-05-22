@@ -1,4 +1,5 @@
 import os
+import subprocess
 import sys
 
 import requests
@@ -7,6 +8,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from config import STUDYSYNC_URL
 
 _NOT_RUNNING = "StudySync isn't running. Start it and try again."
+_DOWNLOADS   = os.path.expanduser("~/Downloads/StudySync")
 
 
 def _get(path: str, params: dict = None) -> requests.Response:
@@ -35,7 +37,12 @@ def execute(params: dict) -> str:
             return _generate(params.get("lecture_title", ""), "cheatsheet")
         if action == "quiz":
             return _generate(params.get("lecture_title", ""), "quiz")
-        return f"Unknown StudySync action '{action}'. Try: list_courses, list_lectures, search, cheatsheet, quiz."
+        if action == "download_lecture":
+            return _download_lecture(params.get("lecture_title", ""))
+        return (
+            f"Unknown StudySync action '{action}'. "
+            "Try: list_courses, list_lectures, search, cheatsheet, quiz, download_lecture."
+        )
     except requests.exceptions.ConnectionError:
         return _NOT_RUNNING
     except requests.exceptions.Timeout:
@@ -55,7 +62,6 @@ def _list_courses() -> str:
 
 
 def _list_lectures(course_filter: str) -> str:
-    # Fetch all lectures and all courses to resolve names
     lectures_resp = _get("/lectures")
     lectures_resp.raise_for_status()
     lectures = lectures_resp.json()
@@ -64,7 +70,6 @@ def _list_lectures(course_filter: str) -> str:
         return "No lectures found in StudySync."
 
     if course_filter:
-        # Build id→name map to filter by course name
         courses_resp = _get("/courses")
         courses_resp.raise_for_status()
         id_to_name = {c["id"]: c["name"] for c in courses_resp.json()}
@@ -110,7 +115,6 @@ def _generate(lecture_title: str, kind: str) -> str:
     if not lecture_title:
         return f"Please provide a lecture title to generate a {kind} for."
 
-    # Resolve lecture → course_id
     resp = _get("/lectures")
     resp.raise_for_status()
     lectures = resp.json()
@@ -119,12 +123,11 @@ def _generate(lecture_title: str, kind: str) -> str:
     if match is None:
         return f"Couldn't find a lecture matching '{lecture_title}'."
 
-    course_id = match["course_id"]
+    course_id     = match["course_id"]
     matched_title = match["title"]
 
-    # Call the appropriate generation endpoint
     endpoint = "/cheatsheet/generate" if kind == "cheatsheet" else "/quiz/generate"
-    gen_resp = _post(endpoint, {"course_id": course_id})
+    gen_resp  = _post(endpoint, {"course_id": course_id})
 
     if gen_resp.status_code == 400:
         detail = gen_resp.json().get("detail", "Unknown error")
@@ -136,13 +139,11 @@ def _generate(lecture_title: str, kind: str) -> str:
         content = data.get("content", "")
         if not content:
             return "Cheatsheet generated but returned empty content."
-        # Return a trimmed preview — full content is long markdown
         preview = content[:600]
         if len(content) > 600:
             preview += "\n... (truncated — full cheatsheet available in StudySync)"
         return f"Cheatsheet for '{matched_title}':\n{preview}"
 
-    # quiz
     questions = data.get("questions", [])
     count = len(questions)
     if not questions:
@@ -153,15 +154,77 @@ def _generate(lecture_title: str, kind: str) -> str:
     )
 
 
+def _download_lecture(lecture_title: str) -> str:
+    if not lecture_title:
+        return "Please provide a lecture title to download."
+
+    # Fetch all lectures and build course id→name map
+    lectures_resp = _get("/lectures")
+    lectures_resp.raise_for_status()
+    lectures = lectures_resp.json()
+
+    courses_resp = _get("/courses")
+    courses_resp.raise_for_status()
+    id_to_name = {c["id"]: c["name"] for c in courses_resp.json()}
+
+    match = _fuzzy_find(lecture_title, lectures, key="title")
+    if match is None:
+        return f"Couldn't find a lecture matching '{lecture_title}'."
+
+    matched_title = match["title"]
+    course_name   = id_to_name.get(match.get("course_id"), "Unknown Course")
+
+    # Find a downloadable URL — check common field names
+    file_url = (
+        match.get("file_url")
+        or match.get("slides_url")
+        or match.get("pdf_url")
+        or match.get("url")
+    )
+
+    if not file_url or not str(file_url).startswith("http"):
+        return f"No files available for '{matched_title}'."
+
+    # Build destination path: ~/Downloads/StudySync/{course}/{title}.pdf
+    safe_course = _safe_name(course_name)
+    safe_title  = _safe_name(matched_title)
+    dest_dir    = os.path.join(_DOWNLOADS, safe_course)
+    os.makedirs(dest_dir, exist_ok=True)
+
+    # Infer extension from URL, default to .pdf
+    url_path = file_url.split("?")[0]
+    ext      = os.path.splitext(url_path)[1] or ".pdf"
+    dest     = os.path.join(dest_dir, safe_title + ext)
+
+    try:
+        resp = requests.get(file_url, timeout=60, stream=True)
+        resp.raise_for_status()
+        with open(dest, "wb") as f:
+            for chunk in resp.iter_content(chunk_size=65536):
+                f.write(chunk)
+    except requests.exceptions.RequestException as e:
+        return f"Download failed: {e}"
+
+    # Auto-open the file
+    subprocess.run(["open", dest], check=False)
+
+    return f"Downloaded and opened '{matched_title}' ({safe_title}{ext}) — saved to {dest}."
+
+
+# ── utilities ─────────────────────────────────────────────────────────────────
+
 def _fuzzy_find(query: str, items: list, key: str):
-    """Return the first item whose `key` contains `query` (case-insensitive), or None."""
+    """Exact match first, then substring match (case-insensitive)."""
     lower_q = query.lower()
-    # Exact match first
     for item in items:
         if item.get(key, "").lower() == lower_q:
             return item
-    # Substring match
     for item in items:
         if lower_q in item.get(key, "").lower():
             return item
     return None
+
+
+def _safe_name(name: str) -> str:
+    """Strip characters unsafe for filesystem paths."""
+    return "".join(c if c.isalnum() or c in " ._-" else "_" for c in name).strip()

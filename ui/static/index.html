@@ -237,6 +237,10 @@ canvas.blk{display:block;width:100%}
         <canvas id="wave-cv" class="blk" height="34"></canvas>
         <canvas id="ekg-cv" class="blk" height="22"></canvas>
       </div>
+      <div class="psec" id="timers-sec" style="display:none">
+        <div class="plbl">ACTIVE TIMERS</div>
+        <div id="timers-list"></div>
+      </div>
       <div class="psec">
         <div class="plbl">LOCATION</div>
         <div class="prow">CITY<span class="pval">SEATTLE, WA</span></div>
@@ -300,6 +304,10 @@ LON 122.3321° W</div>
         <div class="plbl">NOW PLAYING</div>
         <div class="prow">ARTIST<span class="pval iris">TRAVIS SCOTT</span></div>
         <div class="prow">ALSO<span class="pval">DON TOLIVER</span></div>
+      </div>
+      <div class="psec" id="courses-sec" style="display:none">
+        <div class="plbl">COURSES</div>
+        <div id="courses-list"></div>
       </div>
       <div class="psec">
         <div class="plbl">VITALS</div>
@@ -1172,6 +1180,42 @@ socket.on('disconnect',()=>setStatus('offline','OFFLINE'));
 socket.on('status_update',data=>{setStatus(data.state,data.text);if(data.state!=='listening'){recording=false;micBtn.classList.remove('recording');}});
 socket.on('user_message',data=>appendMessage('user',data.text));
 socket.on('jarvis_response',data=>appendMessage('jarvis',data.text));
+
+/* ── TIMER EVENTS ── */
+const _timers={};
+function _fmtTimer(s){const m=Math.floor(s/60),sec=s%60;return String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');}
+function _renderTimers(){
+  const sec=document.getElementById('timers-sec'),lst=document.getElementById('timers-list');
+  const keys=Object.keys(_timers);
+  sec.style.display=keys.length?'':'none';
+  lst.innerHTML=keys.map(k=>{
+    const t=_timers[k];
+    return `<div class="prow">${t.label}<span class="pval on">${_fmtTimer(t.remaining)}</span></div>`;
+  }).join('');
+}
+socket.on('timer_update',data=>{
+  _timers[data.label]={label:data.label,remaining:data.remaining};
+  _renderTimers();
+});
+socket.on('timer_done',data=>{
+  delete _timers[data.label];
+  _renderTimers();
+  // Flash HUD
+  const flash=document.getElementById('flash-overlay');
+  flash.classList.add('flash');setTimeout(()=>flash.classList.remove('flash'),200);
+  // Show COMPLETE in status bar for 3 seconds
+  const prevText=document.getElementById('status-text').textContent;
+  setStatus('ready',`${data.label} COMPLETE`);
+  setTimeout(()=>setStatus('ready',prevText.startsWith(data.label)?'SYSTEM READY':prevText),3000);
+});
+
+/* ── STUDYSYNC COURSES ── */
+socket.on('studysync_update',data=>{
+  const sec=document.getElementById('courses-sec'),lst=document.getElementById('courses-list');
+  const courses=data.courses||[];
+  sec.style.display=courses.length?'':'none';
+  lst.innerHTML=courses.map((c,i)=>`<div class="prow">${String(i+1).padStart(2,'0')}<span class="pval iris">${c}</span></div>`).join('');
+});
 
 /* ── INPUT ── */
 const textInput=document.getElementById('text-input'),micBtn=document.getElementById('mic-btn');

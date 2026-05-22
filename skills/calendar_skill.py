@@ -3,6 +3,18 @@ import os
 import sys
 from datetime import datetime, timedelta, timezone
 
+
+def _iana_tz() -> str:
+    """Return the IANA timezone name for the local system (e.g. 'America/Los_Angeles').
+    Falls back to 'America/Los_Angeles' if detection fails."""
+    try:
+        tz_path = os.path.realpath("/etc/localtime")
+        if "/zoneinfo/" in tz_path:
+            return tz_path.split("/zoneinfo/")[-1]
+    except Exception:
+        pass
+    return "America/Los_Angeles"
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 CONFIG_PATH = os.path.expanduser("~/.notion-planner/config.json")
@@ -118,6 +130,7 @@ def _create_event(service, params: dict) -> str:
     if not title or not date_str or not start_time or not end_time:
         return "Please provide title, date, start_time, and end_time to create an event."
 
+    tz_name  = _iana_tz()
     local_tz = datetime.now().astimezone().tzinfo
     try:
         start_dt = datetime.fromisoformat(f"{date_str}T{start_time}").replace(tzinfo=local_tz)
@@ -127,8 +140,8 @@ def _create_event(service, params: dict) -> str:
 
     body: dict = {
         "summary": title,
-        "start":   {"dateTime": start_dt.isoformat(), "timeZone": str(local_tz)},
-        "end":     {"dateTime": end_dt.isoformat(),   "timeZone": str(local_tz)},
+        "start":   {"dateTime": start_dt.isoformat(), "timeZone": tz_name},
+        "end":     {"dateTime": end_dt.isoformat(),   "timeZone": tz_name},
     }
     if description:
         body["description"] = description

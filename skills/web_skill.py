@@ -5,7 +5,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from config import OLLAMA_MODEL, OLLAMA_URL
 
 import ollama
-from duckduckgo_search import DDGS
+from ddgs import DDGS
 
 
 def execute(params: dict) -> str:
