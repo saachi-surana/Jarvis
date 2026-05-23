@@ -1,9 +1,11 @@
 import os
+import re
 import sys
 import threading
 import time
 
 import requests
+from ddgs import DDGS
 from flask import Flask, send_from_directory
 from flask_socketio import SocketIO, emit
 
@@ -17,6 +19,52 @@ _process_input_fn  = None
 _listener          = None
 _transcriber       = None
 _studysync_courses = []  # cached list of course name strings
+_weather           = {"temp": "69", "desc": "SEATTLE, WA", "feels": "69"}
+
+
+# ── Weather poller ────────────────────────────────────────────────────────────
+
+def _fetch_weather() -> dict:
+    try:
+        with DDGS() as ddgs:
+            results = list(ddgs.text(
+                "Seattle weather right now temperature",
+                max_results=3,
+            ))
+        temp, desc = None, None
+        for r in results:
+            text = r.get("body", "") + " " + r.get("title", "")
+            if temp is None:
+                m = re.search(r"(\d{2,3})\s*°?\s*F", text)
+                if m:
+                    temp = m.group(1)
+            if desc is None:
+                for word in ("sunny", "cloudy", "rain", "snow", "fog",
+                             "overcast", "clear", "drizzle", "storm", "partly"):
+                    if word in text.lower():
+                        desc = word.upper()
+                        break
+            if temp and desc:
+                break
+        return {
+            "temp":  temp or "68",
+            "feels": temp or "68",
+            "desc":  desc or "PARTLY CLOUDY",
+        }
+    except Exception as e:
+        print(f"[Server] Weather fetch failed: {e}")
+        return {}
+
+
+def _weather_poller():
+    global _weather
+    while True:
+        result = _fetch_weather()
+        if result:
+            _weather = result
+            socketio.emit("weather_update", _weather)
+            print(f"[Server] Weather: {_weather['temp']}°F ({_weather['desc']})")
+        time.sleep(600)  # 10 minutes
 
 
 # ── StudySync poller ─────────────────────────────────────────────────────────
@@ -63,9 +111,9 @@ def init(process_input_fn, listener, transcriber):
     _transcriber      = transcriber
     listener.on_audio = on_audio_received
 
-    # Start StudySync background poller
-    t = threading.Thread(target=_studysync_poller, daemon=True)
-    t.start()
+    # Start background pollers
+    threading.Thread(target=_weather_poller, daemon=True).start()
+    threading.Thread(target=_studysync_poller, daemon=True).start()
 
 
 def run(host="127.0.0.1", port=5001):
@@ -90,8 +138,9 @@ def index():
 
 @socketio.on("connect")
 def handle_connect():
-    """Send cached courses to a newly connected client."""
+    """Push cached state to a newly connected client."""
     emit("studysync_update", {"courses": _studysync_courses})
+    emit("weather_update", _weather)
 
 
 @socketio.on("user_input")

@@ -108,13 +108,14 @@ canvas.blk{display:block;width:100%}
 /* CENTER */
 #center-col{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
 #deco-cv{position:absolute;inset:0;pointer-events:none;width:100%;height:100%;z-index:1}
-#reactor-wrap{flex-shrink:0;height:54vh;position:relative;
+#reactor-wrap{flex:0 0 auto;height:min(58vh,62%);min-height:200px;position:relative;
   border-bottom:1px solid rgba(156,207,216,.2);
   background:radial-gradient(ellipse at 50% 55%,rgba(156,207,216,.03) 0,transparent 60%)}
 #reactor-cv{position:absolute;inset:0;width:100%;height:100%;display:block}
 
 /* CONVERSATION */
-#conv-area{flex:1;overflow-y:auto;overflow-x:hidden;padding:10px 16px 6px;background:#000}
+#conv-area{flex:1;min-height:80px;overflow-y:auto;overflow-x:hidden;padding:10px 16px 6px;
+  background:rgba(0,0,0,.95);position:relative;z-index:6}
 #conv-area::-webkit-scrollbar{width:2px}
 #conv-area::-webkit-scrollbar-thumb{background:rgba(156,207,216,.3)}
 .message{margin-bottom:12px;animation:msgin .2s ease-out both}
@@ -221,12 +222,10 @@ canvas.blk{display:block;width:100%}
   <div id="main-row">
 
     <div class="side-col" id="left-col">
-      <div class="psec" id="date-block" style="text-align:center;padding:10px 8px 8px;line-height:1">
-        <div id="db-dow" style="font-size:9px;letter-spacing:4px;color:rgba(156,207,216,.6);margin-bottom:2px;font-family:var(--mono)">MONDAY</div>
-        <div id="db-num" style="font-size:80px;font-weight:bold;letter-spacing:-2px;color:#9ccfd8;font-family:var(--mono);line-height:.9;
-          text-shadow:0 0 6px #fff,0 0 14px #9ccfd8">20</div>
-        <div id="db-mon" style="font-size:10px;letter-spacing:5px;color:rgba(156,207,216,.8);margin-top:4px;font-family:var(--mono);
-          text-shadow:0 0 8px #9ccfd8">MAY</div>
+      <div class="psec" id="date-block" style="text-align:center;padding:6px 8px 4px;line-height:1">
+        <canvas id="clock-cv" width="150" height="150" style="display:block;margin:0 auto;width:min(150px,100%)"></canvas>
+        <div id="db-dow" style="font-size:8px;letter-spacing:3px;color:rgba(156,207,216,.6);margin-top:3px;font-family:var(--mono)">MONDAY</div>
+        <div id="db-date" style="font-size:9px;letter-spacing:2px;color:rgba(156,207,216,.8);font-family:var(--mono);text-shadow:0 0 8px #9ccfd8">22 MAY 2026</div>
       </div>
       <div class="psec">
         <div class="plbl">SUIT DIAGNOSTICS</div>
@@ -236,6 +235,10 @@ canvas.blk{display:block;width:100%}
         <div class="plbl">VOICE ANALYSIS</div>
         <canvas id="wave-cv" class="blk" height="34"></canvas>
         <canvas id="ekg-cv" class="blk" height="22"></canvas>
+      </div>
+      <div class="psec">
+        <div class="plbl">ATMOSPHERIC ANALYSIS</div>
+        <canvas id="atmo-cv" class="blk" height="90"></canvas>
       </div>
       <div class="psec" id="timers-sec" style="display:none">
         <div class="plbl">ACTIVE TIMERS</div>
@@ -313,6 +316,10 @@ LON 122.3321° W</div>
         <div class="plbl">VITALS</div>
         <canvas id="right-gauges-cv" class="blk" height="170"></canvas>
         <canvas id="coffee-cv" class="blk" height="54"></canvas>
+      </div>
+      <div class="psec" style="text-align:center;padding:6px 8px 5px">
+        <div class="plbl">ATMOSPHERIC TEMP</div>
+        <canvas id="temp-cv" width="100" height="100" style="display:block;margin:0 auto"></canvas>
       </div>
       <div class="psec">
         <div class="plbl">GLOBAL UPLINK — SEATTLE</div>
@@ -428,7 +435,7 @@ requestAnimationFrame(drawRingNodes);
 const parCv=document.getElementById('particle-cv'),parCtx=parCv.getContext('2d');
 function resizePar(){parCv.width=innerWidth;parCv.height=innerHeight;}
 window.addEventListener('resize',resizePar);resizePar();
-const PARTS=Array.from({length:220},()=>({
+const PARTS=Array.from({length:300},()=>({
   x:Math.random()*innerWidth,y:Math.random()*innerHeight,
   vy:-(0.15+Math.random()*.55),vx:(Math.random()-.5)*.25,
   a:0.04+Math.random()*.35,
@@ -532,7 +539,7 @@ function drawReactor(ts){
 
   rctx.save();rctx.translate(RX,RY);
   const outerR=RINGS[RINGS.length-1].r+18;
-  const turbineInner=outerR+5,turbineOuter=turbineInner+20;
+  const turbineInner=outerR+5,turbineOuter=turbineInner+30;
   drawTickRing(rctx,outerR);
   drawTurbineRing(rctx,turbineInner,turbineOuter,turbA,isThinking);
 
@@ -639,8 +646,8 @@ function drawReactor(ts){
   const cp=Math.sin(ts*(isListening?.009:.004));
   const cr=isListening?7+cp*3:isThinking?8:6,cc=isListening?'196,167,231':'156,207,216';
   const bloomLayers=[
-    {r:cr+70,al:.02,lw:50},{r:cr+50,al:.04,lw:36},{r:cr+32,al:.08,lw:24},
-    {r:cr+20,al:.16,lw:16},{r:cr+11,al:.30,lw:9}, {r:cr+5, al:.52,lw:4},
+    {r:cr+70,al:.06,lw:55},{r:cr+50,al:.14,lw:40},{r:cr+32,al:.26,lw:28},
+    {r:cr+20,al:.44,lw:18},{r:cr+11,al:.65,lw:10},{r:cr+5, al:.88,lw:5},
   ];
   bloomLayers.forEach(b=>{
     rctx.beginPath();rctx.arc(0,0,b.r,0,Math.PI*2);
@@ -683,9 +690,9 @@ window.addEventListener('resize',()=>setTimeout(resizeDeco,80));
 setTimeout(resizeDeco,120);
 
 const DRINGS=[
-  {xp:.22,yp:.80,r:48,spd:.0045,lbl:'NEURAL LINK',  dash:[4,4],rgb:'156,207,216', phase:0},
-  {xp:.78,yp:.80,r:40,spd:-.006, lbl:'SIGNAL ARRAY',dash:[3,6],rgb:'156,207,216', phase:2.1},
-  {xp:.50,yp:.92,r:44,spd:.005,  lbl:'QUANTUM CORE', dash:[6,3],rgb:'196,167,231',phase:1.0},
+  {xp:.18,yp:.80,r:75,spd:.012, lbl:'NEURAL LINK',  dash:[4,4],rgb:'156,207,216', phase:0},
+  {xp:.82,yp:.80,r:75,spd:-.015,lbl:'SIGNAL ARRAY',dash:[3,6],rgb:'156,207,216', phase:2.1},
+  {xp:.50,yp:.90,r:75,spd:.013, lbl:'QUANTUM CORE', dash:[6,3],rgb:'196,167,231',phase:1.0},
 ];
 const dAngles=[0,0,0];
 
@@ -696,37 +703,60 @@ function drawDecoRings(ts){
   const reactorH=document.getElementById('reactor-wrap')?.offsetHeight||DH*.55;
   const rxC=DW/2,ryC=reactorH*.5;
   DRINGS.forEach((d,i)=>{
-    dAngles[i]+=(d.spd*(isThinking?2.2:1));
-    const cx=d.xp*DW,cy=d.yp*DH;
+    dAngles[i]+=(d.spd*(isThinking?2.5:1));
+    const cx=d.xp*DW;
+    // Clamp cy so rings always stay within the reactor panel
+    const rawCy=d.yp*DH;
+    const cy=Math.min(rawCy, reactorH-d.r-18);
     const pulse=.5+.5*Math.sin(ts*.0018+d.phase);
-    const glo=.28+pulse*.14;
+    const glo=.50+pulse*.25;
     // Connecting line to reactor center
     decoCtx.beginPath();decoCtx.moveTo(rxC,ryC);decoCtx.lineTo(cx,cy-d.r);
-    decoCtx.setLineDash([4,10]);decoCtx.strokeStyle=`rgba(${d.rgb},.07)`;decoCtx.lineWidth=.8;decoCtx.stroke();decoCtx.setLineDash([]);
-    // Glow ring
+    decoCtx.setLineDash([4,10]);decoCtx.strokeStyle=`rgba(${d.rgb},.12)`;decoCtx.lineWidth=.8;decoCtx.stroke();decoCtx.setLineDash([]);
+    // Outer glow ring
     decoCtx.save();decoCtx.translate(cx,cy);decoCtx.rotate(dAngles[i]);
     decoCtx.beginPath();decoCtx.arc(0,0,d.r,0,Math.PI*2);
     decoCtx.setLineDash(d.dash);
-    decoCtx.strokeStyle=`rgba(${d.rgb},${glo*.4})`;decoCtx.lineWidth=10;
-    decoCtx.shadowColor=`rgba(${d.rgb},1)`;decoCtx.shadowBlur=20;decoCtx.stroke();decoCtx.shadowBlur=0;
+    decoCtx.strokeStyle=`rgba(${d.rgb},${glo*.55})`;decoCtx.lineWidth=16;
+    decoCtx.shadowColor=`rgba(${d.rgb},1)`;decoCtx.shadowBlur=32;decoCtx.stroke();decoCtx.shadowBlur=0;
     // Crisp ring
     decoCtx.beginPath();decoCtx.arc(0,0,d.r,0,Math.PI*2);
-    decoCtx.strokeStyle=`rgba(${d.rgb},${glo})`;decoCtx.lineWidth=1.2;
-    decoCtx.shadowColor=`rgba(${d.rgb},1)`;decoCtx.shadowBlur=12;decoCtx.stroke();decoCtx.shadowBlur=0;
+    decoCtx.strokeStyle=`rgba(${d.rgb},${glo})`;decoCtx.lineWidth=2;
+    decoCtx.shadowColor=`rgba(${d.rgb},1)`;decoCtx.shadowBlur=20;decoCtx.stroke();decoCtx.shadowBlur=0;
     // Inner ring
     decoCtx.beginPath();decoCtx.arc(0,0,d.r*.55,0,Math.PI*2);
-    decoCtx.setLineDash([2,5]);decoCtx.strokeStyle=`rgba(${d.rgb},${glo*.35})`;decoCtx.lineWidth=.7;decoCtx.stroke();decoCtx.setLineDash([]);
-    // Center dot
-    decoCtx.beginPath();decoCtx.arc(0,0,2.8,0,Math.PI*2);
-    decoCtx.fillStyle=`rgba(${d.rgb},${glo+.3})`;
-    decoCtx.shadowColor=`rgba(${d.rgb},1)`;decoCtx.shadowBlur=12;decoCtx.fill();decoCtx.shadowBlur=0;
+    decoCtx.setLineDash([2,5]);decoCtx.strokeStyle=`rgba(${d.rgb},${glo*.5})`;decoCtx.lineWidth=1;decoCtx.stroke();decoCtx.setLineDash([]);
+    // Center dot — bright
+    decoCtx.beginPath();decoCtx.arc(0,0,6,0,Math.PI*2);
+    decoCtx.fillStyle=`rgba(${d.rgb},1)`;
+    decoCtx.shadowColor=`rgba(${d.rgb},1)`;decoCtx.shadowBlur=20;decoCtx.fill();decoCtx.shadowBlur=0;
+    decoCtx.beginPath();decoCtx.arc(0,0,3,0,Math.PI*2);
+    decoCtx.fillStyle='rgba(255,255,255,.95)';decoCtx.shadowColor='rgba(255,255,255,1)';decoCtx.shadowBlur=14;decoCtx.fill();decoCtx.shadowBlur=0;
     decoCtx.restore();
     // Label below ring
-    decoCtx.font='6px Monaco,monospace';decoCtx.textAlign='center';decoCtx.textBaseline='top';
-    decoCtx.fillStyle=`rgba(${d.rgb},${glo*.8})`;
-    decoCtx.shadowColor=`rgba(${d.rgb},1)`;decoCtx.shadowBlur=8;
-    decoCtx.fillText(d.lbl,cx,cy+d.r+5);decoCtx.shadowBlur=0;
+    decoCtx.font='bold 9px Monaco,monospace';decoCtx.textAlign='center';decoCtx.textBaseline='top';
+    decoCtx.fillStyle=`rgba(${d.rgb},${glo})`;
+    decoCtx.shadowColor=`rgba(${d.rgb},1)`;decoCtx.shadowBlur=12;
+    decoCtx.fillText(d.lbl,cx,cy+d.r+10);decoCtx.shadowBlur=0;
   });
+  // Grid overlay in lower reactor area (below ring center, above conv-area)
+  const gridTop=reactorH*.55,gridBot=reactorH*.96;
+  decoCtx.save();
+  decoCtx.strokeStyle='rgba(156,207,216,.04)';decoCtx.lineWidth=.5;
+  for(let x=DW*.18;x<DW*.82;x+=22){
+    decoCtx.beginPath();decoCtx.moveTo(x,gridTop);decoCtx.lineTo(x,gridBot);decoCtx.stroke();
+  }
+  for(let y=gridTop;y<gridBot;y+=16){
+    decoCtx.beginPath();decoCtx.moveTo(DW*.18,y);decoCtx.lineTo(DW*.82,y);decoCtx.stroke();
+  }
+  // Horizontal scan line drifting through reactor bottom half
+  const scanY=gridTop+(((ts*.03)%(gridBot-gridTop)));
+  const sg=decoCtx.createLinearGradient(DW*.18,0,DW*.82,0);
+  sg.addColorStop(0,'rgba(156,207,216,0)');sg.addColorStop(.5,'rgba(156,207,216,.10)');sg.addColorStop(1,'rgba(156,207,216,0)');
+  decoCtx.beginPath();decoCtx.moveTo(DW*.18,scanY);decoCtx.lineTo(DW*.82,scanY);
+  decoCtx.strokeStyle=sg;decoCtx.lineWidth=2;decoCtx.stroke();
+  decoCtx.restore();
+
   requestAnimationFrame(drawDecoRings);
 }
 requestAnimationFrame(drawDecoRings);
@@ -850,11 +880,28 @@ function drawCoffeeGauge(){
   ctx.fillStyle='rgba(224,222,244,.95)';ctx.font='bold 6px Monaco,monospace';ctx.fillText(coffeeV.toFixed(0)+'%',cx,cy+5);
 }
 
-function updateGauges(){drawLeftGauges();drawRightGauges();drawCoffeeGauge();}
+/* ── ATMOSPHERIC PRESSURE GAUGE ── */
+let atmoP=29.92,atmoPTarget=29.92;
+function drawAtmoGauge(){
+  const cv=document.getElementById('atmo-cv');if(!cv||!cv.width)return;
+  const ctx=cv.getContext('2d'),W=cv.width,H=cv.height;
+  ctx.clearRect(0,0,W,H);
+  const cx=W/2,cy=H*.60,r=Math.min(30,W/3-4);
+  atmoP+=(atmoPTarget-atmoP)*.015;
+  const norm=Math.max(0,Math.min(1,(atmoP-28.5)/(31.5-28.5)));
+  drawGaugeAt(ctx,cx,cy,r,norm*100,100,'BARO',atmoP.toFixed(2),'156,207,216');
+  ctx.textAlign='center';ctx.font='5px Monaco,monospace';
+  ctx.fillStyle='rgba(156,207,216,.5)';ctx.shadowBlur=0;
+  ctx.fillText('inHg',cx,cy+r+9);
+}
+setInterval(drawAtmoGauge,200);
+setInterval(()=>{atmoPTarget=Math.max(28.9,Math.min(31.1,atmoPTarget+(Math.random()-.5)*.015));},5000);
+
+function updateGauges(){drawLeftGauges();drawRightGauges();drawCoffeeGauge();drawAtmoGauge();}
 
 function resizeAll(){
   resizeReactor();
-  ['left-gauges-cv','right-gauges-cv','coffee-cv','wave-cv','ekg-cv','map-cv','net-cv'].forEach(id=>{
+  ['left-gauges-cv','right-gauges-cv','coffee-cv','atmo-cv','wave-cv','ekg-cv','map-cv','net-cv'].forEach(id=>{
     const cv=document.getElementById(id);if(cv)cv.width=cv.offsetWidth;
   });
   updateGauges();drawMap();initNetTopology();
@@ -1010,6 +1057,24 @@ function buildCircuitLines(){
   // Reactor sides to far edges
   add(rxC,ryC,0,ryC-40,true);
   add(rxC,ryC,innerWidth,ryC+40,true);
+
+  // Date/clock block to reactor
+  const db=document.getElementById('date-block')?.getBoundingClientRect();
+  if(db){
+    add(db.right,db.top+db.height*.35,rxC-80,ryC-50,true);
+    add(db.right,db.bottom,rxC-65,ryC-15,false);
+  }
+  // Bottom bar to reactor
+  const bb=document.getElementById('bottom-bar')?.getBoundingClientRect();
+  if(bb){
+    add(rxC-55,bb.top,rxC-35,ryC+55,false);
+    add(rxC+55,bb.top,rxC+35,ryC+55,false);
+  }
+  // Extra left/right mid-column lines
+  add(lc.right,lc.top+lc.height*.45,rxC-55,ryC-28,true);
+  add(rc.left,rc.top+rc.height*.45,rxC+55,ryC-28,true);
+  add(lc.right,lc.top+lc.height*.65,rxC-70,ryC+28,false);
+  add(rc.left,rc.top+rc.height*.65,rxC+70,ryC+28,false);
 }
 setTimeout(buildCircuitLines,300);
 window.addEventListener('resize',()=>setTimeout(buildCircuitLines,300));
@@ -1076,21 +1141,35 @@ function updateThreat(){
 }
 setInterval(updateThreat,1900);updateThreat();
 
-// Weather — wttr.in plain text format. Browser User-Agent sometimes gets HTML; check for that.
-(function fetchWeather(){
-  const el=document.getElementById('weather-val');
-  fetch('https://wttr.in/Seattle?format=3')
-    .then(r=>r.text())
-    .then(text=>{
-      if(!el)return;
-      const t=text.trim();
-      // wttr.in returns HTML if it doesn't recognise the format param
-      if(t.startsWith('<')||t.length>60){el.textContent='SEATTLE, WA';return;}
-      // Strip city name prefix e.g. "Seattle: ⛅ +16°C" → "⛅ +16°C"
-      el.textContent=t.replace(/^Seattle:\s*/i,'').trim()||'SEATTLE, WA';
-    })
-    .catch(()=>{if(el)el.textContent='SEATTLE, WA';});
-})();
+/* ── TEMPERATURE CIRCLE ── */
+const _tempFallbacks=[38,42,50,58,65,70,75,74,68,58,47,39];
+let tempNum=String(_tempFallbacks[new Date().getMonth()]),tempUnit='°F';
+
+function drawTempCircle(){
+  const cv=document.getElementById('temp-cv');if(!cv)return;
+  const ctx=cv.getContext('2d'),W=cv.width,H=cv.height,cx=W/2,cy=H/2,R=W/2-5;
+  ctx.clearRect(0,0,W,H);
+  const pulse=.5+.5*Math.sin(Date.now()*.0014);
+  // Glow ring
+  ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);
+  ctx.strokeStyle=`rgba(156,207,216,${.10+pulse*.10})`;ctx.lineWidth=14;
+  ctx.shadowColor='rgba(156,207,216,1)';ctx.shadowBlur=22;ctx.stroke();ctx.shadowBlur=0;
+  // Crisp ring
+  ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);
+  ctx.strokeStyle=`rgba(156,207,216,${.60+pulse*.18})`;ctx.lineWidth=1.5;
+  ctx.shadowColor='rgba(156,207,216,1)';ctx.shadowBlur=12;ctx.stroke();ctx.shadowBlur=0;
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  // Temperature number — large
+  ctx.font=`bold ${tempNum.length>3?17:24}px Monaco,monospace`;
+  ctx.fillStyle='rgba(224,222,244,.98)';ctx.shadowColor='rgba(156,207,216,1)';ctx.shadowBlur=12;
+  ctx.fillText(tempNum,cx,cy-9);ctx.shadowBlur=0;
+  // Unit label — smaller below
+  ctx.font='bold 11px Monaco,monospace';
+  ctx.fillStyle='rgba(156,207,216,.85)';ctx.shadowColor='rgba(156,207,216,1)';ctx.shadowBlur=8;
+  ctx.fillText(tempUnit,cx,cy+12);ctx.shadowBlur=0;
+}
+setInterval(drawTempCircle,50);
+
 
 let pingVal=12,bwVal=847;
 function updatePanels(){
@@ -1116,6 +1195,63 @@ function updateHex(){
 }
 setInterval(updateHex,270);updateHex();
 
+function drawAnalogClock(n){
+  const cv=document.getElementById('clock-cv');if(!cv)return;
+  const ctx=cv.getContext('2d'),W=cv.width,H=cv.height,cx=W/2,cy=H/2,R=W/2-4;
+  ctx.clearRect(0,0,W,H);
+  // Outer glow ring
+  ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);
+  ctx.strokeStyle='rgba(156,207,216,.16)';ctx.lineWidth=14;
+  ctx.shadowColor='rgba(156,207,216,1)';ctx.shadowBlur=18;ctx.stroke();ctx.shadowBlur=0;
+  ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);
+  ctx.strokeStyle='rgba(156,207,216,.8)';ctx.lineWidth=1.5;
+  ctx.shadowColor='rgba(156,207,216,1)';ctx.shadowBlur=12;ctx.stroke();ctx.shadowBlur=0;
+  // Tick marks
+  for(let i=0;i<60;i++){
+    const a=i/60*Math.PI*2-Math.PI/2,major=i%5===0;
+    const r1=R-(major?12:5),r2=R-2;
+    ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*r1,cy+Math.sin(a)*r1);
+    ctx.lineTo(cx+Math.cos(a)*r2,cy+Math.sin(a)*r2);
+    ctx.strokeStyle=major?'rgba(156,207,216,.75)':'rgba(156,207,216,.25)';
+    ctx.lineWidth=major?1.8:.7;ctx.stroke();
+  }
+  const hr=n.getHours()%12,mn=n.getMinutes(),sc=n.getSeconds();
+  const hA=(hr/12+mn/720)*Math.PI*2-Math.PI/2;
+  const mA=(mn/60+sc/3600)*Math.PI*2-Math.PI/2;
+  const sA=(sc/60)*Math.PI*2-Math.PI/2;
+  // Hour hand — double-draw for glow + crisp
+  ctx.beginPath();ctx.moveTo(cx-Math.cos(hA)*8,cy-Math.sin(hA)*8);
+  ctx.lineTo(cx+Math.cos(hA)*(R*.50),cy+Math.sin(hA)*(R*.50));
+  ctx.strokeStyle='rgba(156,207,216,.4)';ctx.lineWidth=9;
+  ctx.shadowColor='rgba(156,207,216,1)';ctx.shadowBlur=18;ctx.stroke();ctx.shadowBlur=0;
+  ctx.beginPath();ctx.moveTo(cx-Math.cos(hA)*8,cy-Math.sin(hA)*8);
+  ctx.lineTo(cx+Math.cos(hA)*(R*.50),cy+Math.sin(hA)*(R*.50));
+  ctx.strokeStyle='rgba(156,207,216,1)';ctx.lineWidth=4;
+  ctx.shadowColor='rgba(156,207,216,1)';ctx.shadowBlur=20;ctx.stroke();ctx.shadowBlur=0;
+  // Minute hand — double-draw
+  ctx.beginPath();ctx.moveTo(cx-Math.cos(mA)*8,cy-Math.sin(mA)*8);
+  ctx.lineTo(cx+Math.cos(mA)*(R*.70),cy+Math.sin(mA)*(R*.70));
+  ctx.strokeStyle='rgba(156,207,216,.35)';ctx.lineWidth=7;
+  ctx.shadowColor='rgba(156,207,216,1)';ctx.shadowBlur=14;ctx.stroke();ctx.shadowBlur=0;
+  ctx.beginPath();ctx.moveTo(cx-Math.cos(mA)*8,cy-Math.sin(mA)*8);
+  ctx.lineTo(cx+Math.cos(mA)*(R*.70),cy+Math.sin(mA)*(R*.70));
+  ctx.strokeStyle='rgba(156,207,216,1)';ctx.lineWidth=2.5;
+  ctx.shadowColor='rgba(156,207,216,1)';ctx.shadowBlur=16;ctx.stroke();ctx.shadowBlur=0;
+  // Second hand — iris color
+  ctx.beginPath();ctx.moveTo(cx-Math.cos(sA)*14,cy-Math.sin(sA)*14);
+  ctx.lineTo(cx+Math.cos(sA)*(R*.80),cy+Math.sin(sA)*(R*.80));
+  ctx.strokeStyle='rgba(196,167,231,1)';ctx.lineWidth=1.5;
+  ctx.shadowColor='rgba(196,167,231,1)';ctx.shadowBlur=12;ctx.stroke();ctx.shadowBlur=0;
+  // Center dot
+  ctx.beginPath();ctx.arc(cx,cy,4.5,0,Math.PI*2);
+  ctx.fillStyle='rgba(156,207,216,1)';ctx.shadowColor='rgba(156,207,216,1)';ctx.shadowBlur=16;ctx.fill();ctx.shadowBlur=0;
+  // Digital time overlay
+  const h2=String(n.getHours()).padStart(2,'0'),m2=String(n.getMinutes()).padStart(2,'0'),s2=String(n.getSeconds()).padStart(2,'0');
+  ctx.font='bold 11px Monaco,monospace';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillStyle='rgba(156,207,216,.88)';ctx.shadowColor='rgba(156,207,216,1)';ctx.shadowBlur=8;
+  ctx.fillText(`${h2}:${m2}:${s2}`,cx,cy+R*.4);ctx.shadowBlur=0;
+}
+
 function updateClock(){
   const n=new Date();
   const h=String(n.getHours()).padStart(2,'0'),m=String(n.getMinutes()).padStart(2,'0'),s=String(n.getSeconds()).padStart(2,'0');
@@ -1125,10 +1261,11 @@ function updateClock(){
   if(ct)ct.textContent=`${h}:${m}:${s}`;
   if(cd)cd.textContent=`${days[n.getDay()]} ${months[n.getMonth()]} ${String(n.getDate()).padStart(2,'0')} ${n.getFullYear()}`;
   const fullDays=['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'];
-  const dbDow=document.getElementById('db-dow'),dbNum=document.getElementById('db-num'),dbMon=document.getElementById('db-mon');
+  const dbDow=document.getElementById('db-dow');
   if(dbDow)dbDow.textContent=fullDays[n.getDay()];
-  if(dbNum)dbNum.textContent=String(n.getDate()).padStart(2,'0');
-  if(dbMon)dbMon.textContent=months[n.getMonth()];
+  const dbDate=document.getElementById('db-date');
+  if(dbDate)dbDate.textContent=`${String(n.getDate()).padStart(2,'0')} ${months[n.getMonth()]} ${n.getFullYear()}`;
+  drawAnalogClock(n);
 }
 setInterval(updateClock,1000);updateClock();
 
@@ -1175,7 +1312,7 @@ function appendMessage(speaker,text){
 
 /* ── SOCKETIO ── */
 const socket=io('http://localhost:5001',{transports:['websocket','polling']});
-socket.on('connect',()=>console.log('[JARVIS] online'));
+socket.on('connect',()=>{console.log('[JARVIS] online');setStatus('ready','SYSTEM READY');});
 socket.on('disconnect',()=>setStatus('offline','OFFLINE'));
 socket.on('status_update',data=>{setStatus(data.state,data.text);if(data.state!=='listening'){recording=false;micBtn.classList.remove('recording');}});
 socket.on('user_message',data=>appendMessage('user',data.text));
@@ -1210,6 +1347,13 @@ socket.on('timer_done',data=>{
 });
 
 /* ── STUDYSYNC COURSES ── */
+/* weather pushed by server — updates temp circle + weather-val text */
+socket.on('weather_update',data=>{
+  if(data.temp!=null){tempNum=String(Math.round(Number(data.temp)));tempUnit='°F';}
+  const el=document.getElementById('weather-val');
+  if(el&&data.desc)el.textContent=data.desc;
+});
+
 socket.on('studysync_update',data=>{
   const sec=document.getElementById('courses-sec'),lst=document.getElementById('courses-list');
   const courses=data.courses||[];
