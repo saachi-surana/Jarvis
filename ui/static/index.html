@@ -56,7 +56,7 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9990;
 #layout.show{opacity:1}
 
 /* TOP BAR */
-#top-bar{height:50px;flex-shrink:0;position:relative;background:#000;
+#top-bar{height:76px;flex-shrink:0;position:relative;background:#000;
   border-bottom:1px solid var(--foam);z-index:20;
   box-shadow:0 0 10px var(--foam)}
 #top-bar-inner{display:flex;align-items:center;justify-content:space-between;height:100%;padding:0 16px}
@@ -65,12 +65,14 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9990;
   text-shadow:0 0 8px var(--foam)}
 #clock-date{font-size:7px;letter-spacing:2px;color:var(--muted)}
 #top-center{display:flex;flex-direction:column;align-items:center;gap:1px}
-#main-title{font-size:21px;font-weight:bold;letter-spacing:16px;color:#fff;
+#main-title{font-size:48px;font-weight:bold;letter-spacing:16px;color:#fff;
   text-shadow:0 0 4px #fff,0 0 12px var(--foam);
   opacity:0;animation:tin .4s ease-out 3.4s forwards}
 #sub-title{font-size:6px;letter-spacing:4px;color:var(--muted);
   opacity:0;animation:tin .4s ease-out 3.6s forwards}
 @keyframes tin{to{opacity:1}}
+#stark-tag{font-size:8px;letter-spacing:4px;color:var(--muted);
+  opacity:0;animation:tin .4s ease-out 3.7s forwards}
 #top-right{display:flex;flex-direction:column;align-items:flex-end;gap:0;min-width:170px}
 #ver-tag{font-size:8.5px;letter-spacing:2px;color:var(--foam);text-shadow:0 0 8px var(--foam)}
 #build-tag{font-size:6.5px;letter-spacing:2px;color:var(--muted)}
@@ -87,7 +89,8 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9990;
 .side-col{width:22%;flex-shrink:0;display:flex;flex-direction:column;overflow:hidden;
   background:#000}
 #left-col{border-right:1px solid var(--foam);box-shadow:0 0 10px var(--foam)}
-#right-col{border-left:1px solid var(--foam);box-shadow:0 0 10px var(--foam)}
+#right-col{border-left:1px solid var(--foam);box-shadow:0 0 10px var(--foam);overflow-y:auto;overflow-x:hidden;scrollbar-width:none}
+#right-col::-webkit-scrollbar{display:none}
 .psec{flex-shrink:0;border-bottom:1px solid rgba(156,207,216,.15);padding:6px 10px 7px;background:rgba(0,0,0,.85)}
 .psec.grow{flex:1;overflow:hidden;display:flex;flex-direction:column;min-height:0}
 .plbl{font-size:9px;letter-spacing:2px;color:var(--foam);margin-bottom:4px;padding-bottom:4px;
@@ -112,10 +115,16 @@ canvas.blk{display:block;width:100%}
   border-bottom:1px solid rgba(156,207,216,.2);
   background:radial-gradient(ellipse at 50% 55%,rgba(156,207,216,.03) 0,transparent 60%)}
 #reactor-cv{position:absolute;inset:0;width:100%;height:100%;display:block}
+#subrings-wrap{flex:0 0 auto;height:180px;position:relative;
+  background:rgba(0,3,8,.88);
+  border-bottom:1px solid rgba(156,207,216,.15)}
+#subrings-cv{position:absolute;inset:0;width:100%;height:100%;display:block}
 
 /* CONVERSATION */
 #conv-area{flex:1;min-height:80px;overflow-y:auto;overflow-x:hidden;padding:10px 16px 6px;
-  background:rgba(0,0,0,.95);position:relative;z-index:6}
+  background:rgba(0,5,10,.92);position:relative;z-index:6;
+  border-top:1px solid rgba(156,207,216,.35);
+  box-shadow:inset 0 4px 24px rgba(156,207,216,.07)}
 #conv-area::-webkit-scrollbar{width:2px}
 #conv-area::-webkit-scrollbar-thumb{background:rgba(156,207,216,.3)}
 .message{margin-bottom:12px;animation:msgin .2s ease-out both}
@@ -210,6 +219,7 @@ canvas.blk{display:block;width:100%}
       <div id="top-center">
         <div id="main-title">J.A.R.V.I.S</div>
         <div id="sub-title">JUST A RATHER VERY INTELLIGENT SYSTEM</div>
+        <div id="stark-tag">STARK INDUSTRIES</div>
       </div>
       <div id="top-right">
         <div id="ver-tag">v7.3.1 // AUTONOMOUS</div>
@@ -269,6 +279,9 @@ LON 122.3321° W</div>
       <canvas id="deco-cv"></canvas>
       <div id="reactor-wrap">
         <canvas id="reactor-cv"></canvas>
+      </div>
+      <div id="subrings-wrap">
+        <canvas id="subrings-cv"></canvas>
       </div>
       <div id="conv-area"><div id="messages"></div></div>
       <div id="bottom-bar">
@@ -515,13 +528,13 @@ function drawTurbineRing(ctx,innerR,outerR,turbAngle,isThinking){
     const baseA=turbAngle+i*(Math.PI*2/n)+gap/2,endA=baseA+segArc;
     const hot=TURB_HOT.has(i);
     const br=hot?(isThinking?.95:.82):(isThinking?.48:.32);
-    const rgb=hot?'255,255,255':(isThinking?'196,167,231':'156,207,216');
+    const rgb='255,255,255';
     ctx.beginPath();ctx.arc(0,0,midR,baseA,endA);
     ctx.strokeStyle=`rgba(${rgb},${br*.55})`;ctx.lineWidth=lw+10;
-    ctx.shadowColor=`rgba(${rgb},1)`;ctx.shadowBlur=hot?60:24;ctx.stroke();ctx.shadowBlur=0;
+    ctx.shadowColor=`rgba(${rgb},1)`;ctx.shadowBlur=hot?90:36;ctx.stroke();ctx.shadowBlur=0;
     ctx.beginPath();ctx.arc(0,0,midR,baseA,endA);
     ctx.strokeStyle=`rgba(${rgb},${br})`;ctx.lineWidth=lw;
-    ctx.shadowColor=`rgba(${rgb},1)`;ctx.shadowBlur=hot?40:14;ctx.stroke();ctx.shadowBlur=0;
+    ctx.shadowColor=`rgba(${rgb},1)`;ctx.shadowBlur=hot?60:21;ctx.stroke();ctx.shadowBlur=0;
   }
 }
 
@@ -565,7 +578,7 @@ function drawReactor(ts){
     const bc=isThinking?'196,167,231':'156,207,216';
     rctx.fillStyle=`rgba(${bc},${isThinking?.2:.09})`;
     rctx.strokeStyle=`rgba(${bc},${isThinking?.5:.2})`;rctx.lineWidth=.7;
-    rctx.shadowColor=`rgba(${bc},.4)`;rctx.shadowBlur=isThinking?12:4;
+    rctx.shadowColor=`rgba(${bc},.4)`;rctx.shadowBlur=isThinking?18:6;
     rctx.fill();rctx.stroke();rctx.shadowBlur=0;rctx.restore();
   }
   // Chamber sectors
@@ -589,9 +602,9 @@ function drawReactor(ts){
   }
   rctx.beginPath();rctx.moveTo(0,0);rctx.lineTo(Math.cos(sweepA)*outerR,Math.sin(sweepA)*outerR);
   rctx.strokeStyle='rgba(255,255,255,.9)';rctx.lineWidth=2;
-  rctx.shadowColor='rgba(156,207,216,1)';rctx.shadowBlur=30;rctx.stroke();rctx.shadowBlur=0;
+  rctx.shadowColor='rgba(156,207,216,1)';rctx.shadowBlur=45;rctx.stroke();rctx.shadowBlur=0;
   rctx.strokeStyle=`rgba(156,207,216,${isThinking?1:.9})`;rctx.lineWidth=1;
-  rctx.shadowColor='rgba(156,207,216,1)';rctx.shadowBlur=20;rctx.stroke();rctx.shadowBlur=0;
+  rctx.shadowColor='rgba(156,207,216,1)';rctx.shadowBlur=30;rctx.stroke();rctx.shadowBlur=0;
 
   // Rings
   RINGS.forEach((ring,i)=>{
@@ -611,17 +624,17 @@ function drawReactor(ts){
     // Outer bloom pass
     rctx.strokeStyle=`rgba(${aRgb},${am*.45})`;
     rctx.lineWidth=(ring.r<40?2.8:ring.r<80?2:1.5)+10;
-    rctx.shadowColor=`rgba(${aRgb},1)`;rctx.shadowBlur=isThinking?12:8;
+    rctx.shadowColor=`rgba(${aRgb},1)`;rctx.shadowBlur=isThinking?18:12;
     rctx.stroke();rctx.shadowBlur=0;rctx.setLineDash([]);
     // Sharp crisp pass
     rctx.beginPath();rctx.arc(0,0,ring.r,0,arcEnd);
     ring.solid?rctx.setLineDash([]):rctx.setLineDash(ring.dash);
     rctx.strokeStyle=`rgba(${aRgb},${am})`;rctx.lineWidth=ring.r<40?2.8:ring.r<80?2:1.5;
-    rctx.shadowColor=`rgba(${aRgb},${am*.9})`;rctx.shadowBlur=isThinking?42:ring.solid?28:18;
+    rctx.shadowColor=`rgba(${aRgb},${am*.9})`;rctx.shadowBlur=isThinking?63:ring.solid?42:27;
     rctx.stroke();rctx.shadowBlur=0;rctx.setLineDash([]);
     if(ring.notch>0&&frac>=1){
       const nc=`rgba(${aRgb},${am*.85})`;
-      rctx.shadowColor=`rgba(${aRgb},.6)`;rctx.shadowBlur=isThinking?12:6;
+      rctx.shadowColor=`rgba(${aRgb},.6)`;rctx.shadowBlur=isThinking?18:9;
       rctx.fillStyle=nc;drawNotches(rctx,ring.r,ring.notch,ring.r<60?4:6,nc);rctx.shadowBlur=0;
     }
     rctx.restore();
@@ -652,17 +665,17 @@ function drawReactor(ts){
   bloomLayers.forEach(b=>{
     rctx.beginPath();rctx.arc(0,0,b.r,0,Math.PI*2);
     rctx.strokeStyle=`rgba(${cc},${b.al})`;rctx.lineWidth=b.lw;
-    rctx.shadowColor=`rgba(${cc},1)`;rctx.shadowBlur=60;rctx.stroke();rctx.shadowBlur=0;
+    rctx.shadowColor=`rgba(${cc},1)`;rctx.shadowBlur=90;rctx.stroke();rctx.shadowBlur=0;
   });
   // Outer ring
   rctx.beginPath();rctx.arc(0,0,cr+8,0,Math.PI*2);
   rctx.strokeStyle=`rgba(${cc},.55)`;rctx.lineWidth=2.5;
-  rctx.shadowColor=`rgba(${cc},1)`;rctx.shadowBlur=30;rctx.stroke();rctx.shadowBlur=0;
+  rctx.shadowColor=`rgba(${cc},1)`;rctx.shadowBlur=45;rctx.stroke();rctx.shadowBlur=0;
   // Core fill — pure white center
   rctx.beginPath();rctx.arc(0,0,cr,0,Math.PI*2);
-  rctx.fillStyle='rgba(255,255,255,1)';rctx.shadowColor=`rgba(${cc},1)`;rctx.shadowBlur=90;rctx.fill();rctx.shadowBlur=0;
+  rctx.fillStyle='rgba(255,255,255,1)';rctx.shadowColor=`rgba(${cc},1)`;rctx.shadowBlur=135;rctx.fill();rctx.shadowBlur=0;
   rctx.beginPath();rctx.arc(0,0,cr*.6,0,Math.PI*2);
-  rctx.fillStyle='rgba(255,255,255,1)';rctx.shadowColor='rgba(255,255,255,1)';rctx.shadowBlur=55;rctx.fill();rctx.shadowBlur=0;
+  rctx.fillStyle='rgba(255,255,255,1)';rctx.shadowColor='rgba(255,255,255,1)';rctx.shadowBlur=83;rctx.fill();rctx.shadowBlur=0;
 
   // Orbit labels around turbine ring
   const OLABELS=['COMP','DOCS','CTRL','DESK','DIAG','COMM','NAV','SYS','NET','SEC','AI','MEM'];
@@ -702,43 +715,6 @@ function drawDecoRings(ts){
   if(!bootDone){requestAnimationFrame(drawDecoRings);return;}
   const reactorH=document.getElementById('reactor-wrap')?.offsetHeight||DH*.55;
   const rxC=DW/2,ryC=reactorH*.5;
-  DRINGS.forEach((d,i)=>{
-    dAngles[i]+=(d.spd*(isThinking?2.5:1));
-    const cx=d.xp*DW;
-    // Clamp cy so rings always stay within the reactor panel
-    const rawCy=d.yp*DH;
-    const cy=Math.min(rawCy, reactorH-d.r-18);
-    const pulse=.5+.5*Math.sin(ts*.0018+d.phase);
-    const glo=.50+pulse*.25;
-    // Connecting line to reactor center
-    decoCtx.beginPath();decoCtx.moveTo(rxC,ryC);decoCtx.lineTo(cx,cy-d.r);
-    decoCtx.setLineDash([4,10]);decoCtx.strokeStyle=`rgba(${d.rgb},.12)`;decoCtx.lineWidth=.8;decoCtx.stroke();decoCtx.setLineDash([]);
-    // Outer glow ring
-    decoCtx.save();decoCtx.translate(cx,cy);decoCtx.rotate(dAngles[i]);
-    decoCtx.beginPath();decoCtx.arc(0,0,d.r,0,Math.PI*2);
-    decoCtx.setLineDash(d.dash);
-    decoCtx.strokeStyle=`rgba(${d.rgb},${glo*.55})`;decoCtx.lineWidth=16;
-    decoCtx.shadowColor=`rgba(${d.rgb},1)`;decoCtx.shadowBlur=32;decoCtx.stroke();decoCtx.shadowBlur=0;
-    // Crisp ring
-    decoCtx.beginPath();decoCtx.arc(0,0,d.r,0,Math.PI*2);
-    decoCtx.strokeStyle=`rgba(${d.rgb},${glo})`;decoCtx.lineWidth=2;
-    decoCtx.shadowColor=`rgba(${d.rgb},1)`;decoCtx.shadowBlur=20;decoCtx.stroke();decoCtx.shadowBlur=0;
-    // Inner ring
-    decoCtx.beginPath();decoCtx.arc(0,0,d.r*.55,0,Math.PI*2);
-    decoCtx.setLineDash([2,5]);decoCtx.strokeStyle=`rgba(${d.rgb},${glo*.5})`;decoCtx.lineWidth=1;decoCtx.stroke();decoCtx.setLineDash([]);
-    // Center dot — bright
-    decoCtx.beginPath();decoCtx.arc(0,0,6,0,Math.PI*2);
-    decoCtx.fillStyle=`rgba(${d.rgb},1)`;
-    decoCtx.shadowColor=`rgba(${d.rgb},1)`;decoCtx.shadowBlur=20;decoCtx.fill();decoCtx.shadowBlur=0;
-    decoCtx.beginPath();decoCtx.arc(0,0,3,0,Math.PI*2);
-    decoCtx.fillStyle='rgba(255,255,255,.95)';decoCtx.shadowColor='rgba(255,255,255,1)';decoCtx.shadowBlur=14;decoCtx.fill();decoCtx.shadowBlur=0;
-    decoCtx.restore();
-    // Label below ring
-    decoCtx.font='bold 9px Monaco,monospace';decoCtx.textAlign='center';decoCtx.textBaseline='top';
-    decoCtx.fillStyle=`rgba(${d.rgb},${glo})`;
-    decoCtx.shadowColor=`rgba(${d.rgb},1)`;decoCtx.shadowBlur=12;
-    decoCtx.fillText(d.lbl,cx,cy+d.r+10);decoCtx.shadowBlur=0;
-  });
   // Grid overlay in lower reactor area (below ring center, above conv-area)
   const gridTop=reactorH*.55,gridBot=reactorH*.96;
   decoCtx.save();
@@ -760,6 +736,47 @@ function drawDecoRings(ts){
   requestAnimationFrame(drawDecoRings);
 }
 requestAnimationFrame(drawDecoRings);
+
+/* ── SUB-RINGS PANEL ── */
+const srCv=document.getElementById('subrings-cv'),srCtx=srCv.getContext('2d');
+let SRW=0,SRH=0;
+function resizeSubRings(){SRW=srCv.offsetWidth;SRH=srCv.offsetHeight;srCv.width=SRW;srCv.height=SRH;}
+window.addEventListener('resize',()=>setTimeout(resizeSubRings,80));
+setTimeout(resizeSubRings,120);
+
+function drawSubRings(ts){
+  if(!SRW||!SRH){requestAnimationFrame(drawSubRings);return;}
+  srCtx.clearRect(0,0,SRW,SRH);
+  if(!bootDone){requestAnimationFrame(drawSubRings);return;}
+  const positions=[[SRW*.2,SRH*.5],[SRW*.8,SRH*.5],[SRW*.5,SRH*.5]];
+  DRINGS.forEach((d,i)=>{
+    dAngles[i]+=(d.spd*(isThinking?2.5:1));
+    const [cx,cy]=positions[i];
+    const pulse=.5+.5*Math.sin(ts*.0018+d.phase);
+    const glo=.50+pulse*.25;
+    srCtx.save();srCtx.translate(cx,cy);srCtx.rotate(dAngles[i]);
+    srCtx.beginPath();srCtx.arc(0,0,d.r,0,Math.PI*2);
+    srCtx.setLineDash(d.dash);
+    srCtx.strokeStyle=`rgba(${d.rgb},${glo*.55})`;srCtx.lineWidth=16;
+    srCtx.shadowColor=`rgba(${d.rgb},1)`;srCtx.shadowBlur=32;srCtx.stroke();srCtx.shadowBlur=0;
+    srCtx.beginPath();srCtx.arc(0,0,d.r,0,Math.PI*2);
+    srCtx.strokeStyle=`rgba(${d.rgb},${glo})`;srCtx.lineWidth=2;
+    srCtx.shadowColor=`rgba(${d.rgb},1)`;srCtx.shadowBlur=20;srCtx.stroke();srCtx.shadowBlur=0;
+    srCtx.beginPath();srCtx.arc(0,0,d.r*.55,0,Math.PI*2);
+    srCtx.setLineDash([2,5]);srCtx.strokeStyle=`rgba(${d.rgb},${glo*.5})`;srCtx.lineWidth=1;srCtx.stroke();srCtx.setLineDash([]);
+    srCtx.beginPath();srCtx.arc(0,0,6,0,Math.PI*2);
+    srCtx.fillStyle=`rgba(${d.rgb},1)`;srCtx.shadowColor=`rgba(${d.rgb},1)`;srCtx.shadowBlur=20;srCtx.fill();srCtx.shadowBlur=0;
+    srCtx.beginPath();srCtx.arc(0,0,3,0,Math.PI*2);
+    srCtx.fillStyle='rgba(255,255,255,.95)';srCtx.shadowColor='rgba(255,255,255,1)';srCtx.shadowBlur=14;srCtx.fill();srCtx.shadowBlur=0;
+    srCtx.restore();
+    srCtx.font='bold 9px Monaco,monospace';srCtx.textAlign='center';srCtx.textBaseline='top';
+    srCtx.fillStyle=`rgba(${d.rgb},${glo})`;
+    srCtx.shadowColor=`rgba(${d.rgb},1)`;srCtx.shadowBlur=12;
+    srCtx.fillText(d.lbl,cx,cy+d.r+4);srCtx.shadowBlur=0;
+  });
+  requestAnimationFrame(drawSubRings);
+}
+requestAnimationFrame(drawSubRings);
 
 /* ── GAUGES ── */
 let pwr=94,shld=88,rep=82,thr=100,neuro=82,memV=34,cpuV=8,uplink=97;
@@ -901,6 +918,7 @@ function updateGauges(){drawLeftGauges();drawRightGauges();drawCoffeeGauge();dra
 
 function resizeAll(){
   resizeReactor();
+  resizeSubRings();
   ['left-gauges-cv','right-gauges-cv','coffee-cv','atmo-cv','wave-cv','ekg-cv','map-cv','net-cv'].forEach(id=>{
     const cv=document.getElementById(id);if(cv)cv.width=cv.offsetWidth;
   });
