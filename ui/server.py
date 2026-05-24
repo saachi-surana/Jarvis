@@ -20,6 +20,7 @@ _listener          = None
 _transcriber       = None
 _studysync_courses = []  # cached list of course name strings
 _weather           = {"temp": "69", "desc": "SEATTLE, WA", "feels": "69"}
+_now_playing       = {"artist": "--", "track": "--"}
 
 
 # ── Weather poller ────────────────────────────────────────────────────────────
@@ -65,6 +66,29 @@ def _weather_poller():
             socketio.emit("weather_update", _weather)
             print(f"[Server] Weather: {_weather['temp']}°F ({_weather['desc']})")
         time.sleep(600)  # 10 minutes
+
+
+# ── Spotify poller ───────────────────────────────────────────────────────────
+
+def _fetch_now_playing() -> dict:
+    try:
+        from skills import spotify_skill
+        result = spotify_skill.execute({"action": "what_playing"})
+        m = re.match(r"(?:Playing|Paused):\s*(.+?)\s+by\s+(.+?)\.$", result)
+        if m:
+            return {"track": m.group(1), "artist": m.group(2)}
+    except Exception as e:
+        print(f"[Server] Spotify fetch failed: {e}")
+    return {"artist": "--", "track": "--"}
+
+
+def _spotify_poller():
+    global _now_playing
+    while True:
+        data = _fetch_now_playing()
+        _now_playing = data
+        socketio.emit("now_playing_update", data)
+        time.sleep(15)
 
 
 # ── StudySync poller ─────────────────────────────────────────────────────────
@@ -114,6 +138,7 @@ def init(process_input_fn, listener, transcriber):
     # Start background pollers
     threading.Thread(target=_weather_poller, daemon=True).start()
     threading.Thread(target=_studysync_poller, daemon=True).start()
+    threading.Thread(target=_spotify_poller, daemon=True).start()
 
 
 def run(host="127.0.0.1", port=5001):
@@ -141,6 +166,7 @@ def handle_connect():
     """Push cached state to a newly connected client."""
     emit("studysync_update", {"courses": _studysync_courses})
     emit("weather_update", _weather)
+    emit("now_playing_update", _now_playing)
 
 
 @socketio.on("user_input")

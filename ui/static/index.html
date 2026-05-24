@@ -321,8 +321,8 @@ canvas.blk{display:block;width:100%}
       </div>
       <div class="psec">
         <div class="plbl">NOW PLAYING</div>
-        <div class="prow">ARTIST<span class="pval iris">TRAVIS SCOTT</span></div>
-        <div class="prow">ALSO<span class="pval">DON TOLIVER</span></div>
+        <div class="prow">ARTIST<span class="pval iris" id="now-playing-artist">--</span></div>
+        <div class="prow">TRACK<span class="pval" id="now-playing-track">--</span></div>
       </div>
       <div class="psec" id="courses-sec" style="display:none">
         <div class="plbl">COURSES</div>
@@ -1386,6 +1386,11 @@ socket.on('studysync_update',data=>{
   const courses=data.courses||[];
   sec.style.display=courses.length?'':'none';
   lst.innerHTML=courses.map((c,i)=>`<div class="prow">${String(i+1).padStart(2,'0')}<span class="pval iris">${c}</span></div>`).join('');
+});
+socket.on('now_playing_update',data=>{
+  const a=document.getElementById('now-playing-artist'),t=document.getElementById('now-playing-track');
+  if(a)a.textContent=data.artist||'--';
+  if(t)t.textContent=data.track||'--';
 });
 
 /* ── INPUT ── */
