@@ -252,7 +252,7 @@ canvas.blk{display:block;width:100%}
       </div>
       <div class="psec">
         <div class="plbl">ATMOSPHERIC ANALYSIS</div>
-        <canvas id="atmo-cv" class="blk" height="90"></canvas>
+        <canvas id="atmo-cv" class="blk" height="80"></canvas>
       </div>
       <div class="psec" id="timers-sec" style="display:none">
         <div class="plbl">ACTIVE TIMERS</div>
@@ -261,17 +261,16 @@ canvas.blk{display:block;width:100%}
       <div class="psec">
         <div class="plbl">LOCATION</div>
         <div class="prow">CITY<span class="pval">SEATTLE, WA</span></div>
-        <div class="prow">COORDS<span class="pval">47.6°N 122.3°W</span></div>
         <div class="prow">WEATHER<span class="pval" id="weather-val">FETCHING...</span></div>
         <div class="prow">SEASON<span class="pval on">SPRING 2026</span></div>
+        <div class="prow">COORDS<span class="pval" style="font-size:8px">47.6062°N 122.3321°W</span></div>
       </div>
       <div class="psec">
         <div class="plbl">OPERATOR</div>
         <div class="prow">INSTITUTION<span class="pval iris">UNIV OF WASHINGTON</span></div>
         <div class="prow">MAJOR<span class="pval">COMPUTER SCIENCE</span></div>
         <div class="prow">QUARTER<span class="pval on">SPRING 2026</span></div>
-        <div class="coord" id="coord-blk" style="margin-top:2px">LAT  47.6062° N
-LON 122.3321° W</div>
+        <pre id="coord-blk" class="coord"></pre>
       </div>
       <div class="psec grow">
         <div class="plbl">SYS HEX</div>
@@ -833,9 +832,9 @@ function drawLeftGauges(){
   const cv=document.getElementById('left-gauges-cv');if(!cv)return;
   const ctx=cv.getContext('2d'),W=cv.width,H=cv.height;
   ctx.clearRect(0,0,W,H);
-  const pr=Math.min(56,W/2-10); // POWER radius
-  const sr=Math.min(34,W/2-8);  // SHIELDS radius
-  const smR=Math.min(21,W/4-8); // small gauge radius
+  const pr=Math.min(56,W/2-10);
+  const sr=Math.min(34,W/2-8);
+  const smR=Math.min(21,W/4-8);
   const powerY=pr+8;
   const shieldY=powerY+pr+14+sr;
   const smallJY=shieldY+sr+12;
@@ -846,15 +845,10 @@ function drawLeftGauges(){
   drawGaugeAt(ctx,W*.27,smallY,smR,rep,100,'RPULSR',rep.toFixed(0)+'%','156,207,216');
   drawGaugeAt(ctx,W*.73,smallY,smR,thr,100,'THRSTR','ONLINE','196,167,231');
 
-  // Circuit lines
   ctx.setLineDash([2,5]);ctx.strokeStyle='rgba(156,207,216,.25)';ctx.lineWidth=.9;
-  // Power → Shields
   ctx.beginPath();ctx.moveTo(W/2,powerY+pr+2);ctx.lineTo(W/2,shieldY-sr-2);ctx.stroke();
-  // Shields → junction
   ctx.beginPath();ctx.moveTo(W/2,shieldY+sr+2);ctx.lineTo(W/2,smallJY);ctx.stroke();
-  // Junction → RPULSR
   ctx.beginPath();ctx.moveTo(W/2,smallJY);ctx.lineTo(W*.27,smallJY);ctx.lineTo(W*.27,smallY-smR-2);ctx.stroke();
-  // Junction → THRSTR
   ctx.beginPath();ctx.moveTo(W/2,smallJY);ctx.lineTo(W*.73,smallJY);ctx.lineTo(W*.73,smallY-smR-2);ctx.stroke();
   ctx.setLineDash([]);
   [[W/2,shieldY-sr-2],[W/2,smallJY],[W*.27,smallJY],[W*.73,smallJY]].forEach(([x,y])=>{
