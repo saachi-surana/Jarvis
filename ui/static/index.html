@@ -91,7 +91,7 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9990;
 .side-col{width:22%;flex-shrink:0;display:flex;flex-direction:column;overflow:hidden;
   background:#000}
 #left-col{border-right:1px solid var(--foam);box-shadow:0 0 10px var(--foam)}
-#right-col{border-left:1px solid var(--foam);box-shadow:0 0 10px var(--foam);overflow-y:auto;overflow-x:hidden;scrollbar-width:none}
+#right-col{border-left:1px solid var(--foam);box-shadow:0 0 10px var(--foam);overflow-y:hidden!important;overflow-x:hidden}
 #right-col::-webkit-scrollbar{display:none}
 .psec{flex-shrink:0;border-bottom:1px solid rgba(156,207,216,.15);padding:6px 10px 7px;background:rgba(0,0,0,.85)}
 .psec.grow{flex:1;overflow:hidden;display:flex;flex-direction:column;min-height:0}
@@ -330,8 +330,7 @@ canvas.blk{display:block;width:100%}
       </div>
       <div class="psec">
         <div class="plbl">VITALS</div>
-        <canvas id="right-gauges-cv" class="blk" height="170"></canvas>
-        <canvas id="coffee-cv" class="blk" height="54"></canvas>
+        <canvas id="right-gauges-cv" class="blk" height="130"></canvas>
       </div>
       <div class="psec" style="text-align:center;padding:6px 8px 5px">
         <div class="plbl">ATMOSPHERIC TEMP</div>
@@ -858,10 +857,11 @@ function drawLeftGauges(){
 }
 
 function drawRightGauges(){
-  const cv=document.getElementById('right-gauges-cv');if(!cv)return;
+  const cv=document.getElementById('right-gauges-cv');if(!cv||!cv.width)return;
   const ctx=cv.getContext('2d'),W=cv.width,H=cv.height;
+  if(!W||W<20||!H)return;
   ctx.clearRect(0,0,W,H);
-  const gr=Math.min(32,W/4-6);
+  const gr=Math.max(4,Math.min(32,W/4-6));
   const row1y=gr+8,row2y=gr*2+22;
   const defs=[
     {x:W*.25,y:row1y,val:neuro,lbl:'NEURAL',vStr:neuro.toFixed(0)+'%',rgb:'196,167,231'},
@@ -923,12 +923,12 @@ function drawAtmoGauge(){
 setInterval(drawAtmoGauge,200);
 setInterval(()=>{atmoPTarget=Math.max(28.9,Math.min(31.1,atmoPTarget+(Math.random()-.5)*.015));},5000);
 
-function updateGauges(){drawLeftGauges();drawRightGauges();drawCoffeeGauge();drawAtmoGauge();}
+function updateGauges(){drawLeftGauges();drawRightGauges();drawAtmoGauge();}
 
 function resizeAll(){
   resizeReactor();
   resizeSubRings();
-  ['left-gauges-cv','right-gauges-cv','coffee-cv','atmo-cv','wave-cv','ekg-cv','map-cv','net-cv'].forEach(id=>{
+  ['left-gauges-cv','right-gauges-cv','atmo-cv','wave-cv','ekg-cv','map-cv','net-cv'].forEach(id=>{
     const cv=document.getElementById(id);if(cv)cv.width=cv.offsetWidth;
   });
   updateGauges();drawMap();initNetTopology();
@@ -1388,6 +1388,7 @@ socket.on('studysync_update',data=>{
   lst.innerHTML=courses.map((c,i)=>`<div class="prow">${String(i+1).padStart(2,'0')}<span class="pval iris">${c}</span></div>`).join('');
 });
 socket.on('now_playing_update',data=>{
+  console.log('[JARVIS] now_playing_update',data);
   const a=document.getElementById('now-playing-artist'),t=document.getElementById('now-playing-track');
   if(a)a.textContent=data.artist||'--';
   if(t)t.textContent=data.track||'--';
