@@ -1,7 +1,6 @@
 faster-whisper
-pyaudio
+sounddevice
 openwakeword
-pygame
 ollama
 google-auth-oauthlib
 google-api-python-client
