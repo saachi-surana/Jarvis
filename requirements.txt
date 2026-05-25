@@ -10,3 +10,4 @@ piper-tts
 pynput
 flask
 flask-socketio
+mcp

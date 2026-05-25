@@ -65,3 +65,58 @@ The HUD opens in a Brave Browser app window at `http://localhost:5001`.
 ## Wake word
 
 Say **"Jarvis"** to activate the microphone, or click the mic button in the HUD.
+
+## MCP Server — Connect Jarvis to Claude Desktop
+
+Jarvis exposes its skills as MCP (Model Context Protocol) tools so Claude Desktop can call them directly.
+
+### Install the MCP dependency
+
+```
+pip install mcp
+```
+
+### Register with Claude Desktop
+
+Add the Jarvis MCP server to Claude's config file:
+
+```
+~/Library/Application Support/Claude/claude_desktop_config.json
+```
+
+If the file already has an `mcpServers` key, merge in the Jarvis entry. If the file doesn't exist yet, create it. The content should be:
+
+```json
+{
+  "mcpServers": {
+    "jarvis": {
+      "command": "python3",
+      "args": ["/Users/saachisurana/Projects/Jarvis/mcp_server.py"],
+      "env": {}
+    }
+  }
+}
+```
+
+The ready-to-copy config is also saved at `jarvis_mcp_config.json` in this repo.
+
+Restart Claude Desktop after editing the file. Claude will show a hammer icon (🔨) in the chat input when MCP tools are active.
+
+### Available tools
+
+| Tool | What it does |
+|---|---|
+| `jarvis_calendar` | Read today/tomorrow/week/next event, or create a new event |
+| `jarvis_tasks` | List all tasks, list today's tasks, add a task, mark done |
+| `jarvis_spotify` | Play, pause, skip, search songs/artists, set volume |
+| `jarvis_studysync` | List courses, list lectures, search course materials |
+| `jarvis_search` | Search across tasks, calendar, and StudySync at once |
+| `jarvis_system` | Get current time or Seattle weather |
+
+### Running the server standalone (for testing)
+
+```
+python3 mcp_server.py
+```
+
+The server communicates over stdio and is launched automatically by Claude Desktop — you don't need to keep it running manually.

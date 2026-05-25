@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "jarvis": {
+      "command": "python3",
+      "args": ["/Users/saachisurana/Projects/Jarvis/mcp_server.py"],
+      "env": {}
+    }
+  }
+}
