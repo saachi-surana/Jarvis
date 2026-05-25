@@ -72,11 +72,13 @@ def _weather_poller():
 
 def _fetch_now_playing() -> dict:
     try:
-        from skills import spotify_skill
-        result = spotify_skill.execute({"action": "what_playing"})
-        m = re.match(r"(?:Playing|Paused):\s*(.+?)\s+by\s+(.+?)\.$", result)
-        if m:
-            return {"track": m.group(1), "artist": m.group(2)}
+        from skills.spotify_skill import execute as spotify_execute
+        result = spotify_execute({"action": "what_playing"})
+        print(f"[Server] Spotify raw: {result!r}")
+        if result.startswith("Playing:"):
+            m = re.match(r"Playing: (.+) by (.+)\.", result)
+            if m:
+                return {"track": m.group(1), "artist": m.group(2)}
     except Exception as e:
         print(f"[Server] Spotify fetch failed: {e}")
     return {"artist": "--", "track": "--"}
@@ -85,10 +87,10 @@ def _fetch_now_playing() -> dict:
 def _spotify_poller():
     global _now_playing
     while True:
+        time.sleep(15)
         data = _fetch_now_playing()
         _now_playing = data
-        socketio.emit("now_playing_update", data)
-        time.sleep(15)
+        socketio.emit("now_playing_update", _now_playing)
 
 
 # ── StudySync poller ─────────────────────────────────────────────────────────
@@ -134,6 +136,11 @@ def init(process_input_fn, listener, transcriber):
     _listener         = listener
     _transcriber      = transcriber
     listener.on_audio = on_audio_received
+
+    # Fetch Spotify state synchronously so _now_playing is ready before any client connects
+    global _now_playing
+    _now_playing = _fetch_now_playing()
+    print(f"[Server] Initial now_playing: {_now_playing}")
 
     # Start background pollers
     threading.Thread(target=_weather_poller, daemon=True).start()
