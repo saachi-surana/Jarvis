@@ -1,4 +1,3 @@
-import json
 import importlib
 import os
 import sys
@@ -21,8 +20,6 @@ SKILL_MAP = {
     "file":      "file_skill",
 }
 
-_MALFORMED = object()  # sentinel: JSON-like content found but couldn't parse
-
 
 class Router:
     def __init__(self):
@@ -30,18 +27,13 @@ class Router:
         if skills_dir not in sys.path:
             sys.path.insert(0, skills_dir)
 
-    def route(self, brain_output: str) -> str:
+    def route(self, brain_output: Union[str, dict, None]) -> str:
         if not brain_output:
             return "I didn't catch that. Could you repeat?"
 
-        result = self._try_parse_json(brain_output)
-
-        if result is _MALFORMED:
-            return "I didn't quite understand that. Could you rephrase?"
-
-        if isinstance(result, dict) and "action" in result:
-            action = result["action"]
-            params = result.get("params", {})
+        if isinstance(brain_output, dict) and "action" in brain_output:
+            action = brain_output["action"]
+            params = brain_output.get("params", {})
             # Intercept: if system skill gets a music-sounding action, redirect to spotify
             if action == "system" and params.get("action") in (
                 "play_music", "play_song", "play_artist", "play", "pause_music",
@@ -51,51 +43,10 @@ class Router:
                 return self._dispatch_skill("spotify", params)
             return self._dispatch_skill(action, params)
 
-        return brain_output
+        if isinstance(brain_output, str):
+            return brain_output
 
-    def _try_parse_json(self, text: str) -> Union[dict, object, None]:
-        text = text.strip()
-
-        if text.startswith("```"):
-            lines = text.splitlines()
-            inner = lines[1:-1] if lines[-1].strip() == "```" else lines[1:]
-            text  = "\n".join(inner).strip()
-
-        if text.startswith("{"):
-            try:
-                obj = json.loads(text)
-                if isinstance(obj, dict):
-                    return obj
-            except (json.JSONDecodeError, ValueError):
-                pass
-
-        brace_pos = text.find("{")
-        if brace_pos == -1:
-            return None
-
-        depth   = 0
-        end_pos = -1
-        for i, ch in enumerate(text[brace_pos:], brace_pos):
-            if ch == "{":
-                depth += 1
-            elif ch == "}":
-                depth -= 1
-                if depth == 0:
-                    end_pos = i
-                    break
-
-        if end_pos == -1:
-            return _MALFORMED
-
-        candidate = text[brace_pos:end_pos + 1]
-        try:
-            obj = json.loads(candidate)
-            if isinstance(obj, dict):
-                return obj
-        except (json.JSONDecodeError, ValueError):
-            return _MALFORMED
-
-        return None
+        return "I didn't quite understand that. Could you rephrase?"
 
     def _dispatch_skill(self, action: str, params: dict) -> str:
         logger.info("Dispatch → action=%r  params=%s", action, params)

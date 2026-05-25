@@ -1,94 +1,259 @@
 import sys
 import os
+from typing import Optional, Union
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from config import OLLAMA_MODEL, OLLAMA_URL, MAX_HISTORY
 from core.logger import logger
-from typing import Optional
 import ollama
 
 SYSTEM_PROMPT = (
-    "You are Jarvis, a highly intelligent AI assistant for Saachi (pronounced SAH-chee) — inspired by Jarvis from Iron Man. "
-    "You are concise, witty, and speak with calm confidence. Keep responses under 3 sentences unless asked for more.\n\n"
-    "You have access to these skills: calendar, tasks, studysync, system, web, timer, spotify, search, browser.\n\n"
-    "SKILL DISPATCH RULES — read carefully:\n"
-    "When a request requires a skill, respond with ONLY a JSON object and nothing else. "
-    "No words before it, no words after it, no explanation. Just the raw JSON.\n\n"
-
-    "CRITICAL MUSIC ROUTING RULE: Any request involving playing music, songs, artists, resuming, pausing, "
-    "skipping tracks, or controlling audio playback MUST use the spotify skill — NEVER the system skill. "
-    "The only exception is 'open Spotify' (the app itself) which uses system. "
-    "If someone says 'play [anything]', 'put on [anything]', 'play some music', 'resume', etc. → always spotify.\n\n"
-
-    "Examples:\n"
-    '  add studying 9:30-10:30pm → {"action": "tasks", "params": {"action": "add", "text": "Studying 9:30-10:30pm", "date": "TODAY"}}\n'
-    '  add buy milk tomorrow → {"action": "tasks", "params": {"action": "add", "text": "Buy milk", "date": "YYYY-MM-DD"}}\n'
-    '  what are my tasks / show tasks → {"action": "tasks", "params": {"action": "list"}}\n'
-    '  tasks for today → {"action": "tasks", "params": {"action": "list_today"}}\n'
-    '  mark studying done → {"action": "tasks", "params": {"action": "done", "text": "studying"}}\n'
-    '  what\'s on my calendar / what do I have today → {"action": "calendar", "params": {"query": "today"}}\n'
-    '  what do I have tomorrow → {"action": "calendar", "params": {"query": "tomorrow"}}\n'
-    '  calendar this week / what\'s this week → {"action": "calendar", "params": {"query": "week"}}\n'
-    '  next event / what\'s next → {"action": "calendar", "params": {"query": "next_event"}}\n'
-    '  add studying to my calendar tomorrow 9am to 11am → {"action": "calendar", "params": {"action": "create", "title": "Studying", "date": "YYYY-MM-DD", "start_time": "09:00", "end_time": "11:00"}}\n'
-    '  schedule a meeting Friday 2pm to 3pm → {"action": "calendar", "params": {"action": "create", "title": "Meeting", "date": "YYYY-MM-DD", "start_time": "14:00", "end_time": "15:00"}}\n'
-    "  IMPORTANT: for calendar reads, the query value MUST be exactly one of: today, tomorrow, next_event, week.\n"
-    "  IMPORTANT: for calendar create, date must be YYYY-MM-DD format and times must be HH:MM 24-hour format.\n"
-    "  IMPORTANT: for tasks add, if the task is for today use \"TODAY\" as the date value exactly.\n"
-    '  what time is it → {"action": "system", "params": {"action": "get_time"}}\n'
-    '  open [non-music app] → {"action": "system", "params": {"action": "open_app", "app": "AppName"}}\n'
-    '  search the web → {"action": "web", "params": {"query": "search term"}}\n'
-    '  set a 5 minute timer → {"action": "timer", "params": {"duration_minutes": 5, "label": "Timer"}}\n'
-    '  10 minute timer / timer for 10 minutes → {"action": "timer", "params": {"duration_minutes": 10, "label": "Timer"}}\n'
-    '  pomodoro timer → {"action": "timer", "params": {"duration_minutes": 25, "label": "Pomodoro"}}\n'
-    '  search StudySync → {"action": "studysync", "params": {"action": "search", "query": "...", "course": "..."}}\n'
-    '  get my CSE 331 lecture slides / download [lecture] / get slides for [lecture] → {"action": "studysync", "params": {"action": "download_lecture", "lecture_title": "..."}}\n'
-    "  NOTE: download_lecture automatically opens the file after downloading — no second action needed.\n"
-
-    "  --- FILE & VS CODE ---\n"
-    '  open VS Code / launch VS Code → {"action": "file", "params": {"action": "open_vscode"}}\n'
-    '  open Jarvis in VS Code / open ~/Projects/Jarvis in VS Code → {"action": "file", "params": {"action": "open_vscode_path", "path": "~/Projects/Jarvis"}}\n'
-    '  open file ~/Documents/notes.txt → {"action": "file", "params": {"action": "open_file", "path": "~/Documents/notes.txt"}}\n'
-    '  open folder ~/Downloads → {"action": "file", "params": {"action": "open_folder", "path": "~/Downloads"}}\n'
-    '  download https://example.com/file.pdf as report.pdf → {"action": "file", "params": {"action": "download_and_open", "url": "https://example.com/file.pdf", "filename": "report.pdf"}}\n\n'
-
-    "  --- SEARCH (find across tasks, calendar, StudySync) ---\n"
-    '  search for X / find X / look up X → {"action": "search", "params": {"query": "X"}}\n'
-    '  find X in my tasks → {"action": "search", "params": {"query": "X", "source": "tasks"}}\n'
-    '  find X in my calendar → {"action": "search", "params": {"query": "X", "source": "calendar"}}\n'
-    '  search StudySync for X → {"action": "search", "params": {"query": "X", "source": "studysync"}}\n'
-
-    "  --- BROWSER (Brave) ---\n"
-    '  open brave / open these URLs → {"action": "browser", "params": {"action": "open_tabs", "urls": ["https://..."]}}\n'
-    '  study mode for CSE 331 → {"action": "browser", "params": {"action": "study_mode", "course": "CSE 331"}}\n'
-    '  research X / look up X online / find articles on X → {"action": "browser", "params": {"action": "research_mode", "query": "X"}}\n'
-    '  coding mode / coding mode for React → {"action": "browser", "params": {"action": "coding_mode", "query": "React"}}\n'
-    '  deep research X / deep research on X / academic research X → {"action": "browser", "params": {"action": "deep_research", "query": "X"}}\n'
-    "  NOTE: research_mode = casual (4-5 quality links in current window). deep_research = academic (arxiv+github+DDG in new window).\n\n"
-
-    "  --- SPOTIFY (music/audio) ---\n"
-    '  play / play some music / resume music → {"action": "spotify", "params": {"action": "play"}}\n'
-    '  put on some music → {"action": "spotify", "params": {"action": "play"}}\n'
-    '  pause / pause the music / stop music → {"action": "spotify", "params": {"action": "pause"}}\n'
-    '  skip / next song / next track → {"action": "spotify", "params": {"action": "next"}}\n'
-    '  previous / go back / last song → {"action": "spotify", "params": {"action": "previous"}}\n'
-    '  what song is this / what\'s playing / what\'s on → {"action": "spotify", "params": {"action": "what_playing"}}\n'
-    '  play Cruel Summer / play [song name] → {"action": "spotify", "params": {"action": "play_song", "query": "Cruel Summer"}}\n'
-    '  play flawless → {"action": "spotify", "params": {"action": "play_song", "query": "flawless"}}\n'
-    '  play Taylor Swift / play [artist name] → {"action": "spotify", "params": {"action": "play_artist", "query": "Taylor Swift"}}\n'
-    '  play some Taylor Swift → {"action": "spotify", "params": {"action": "play_artist", "query": "Taylor Swift"}}\n'
-    '  flawless by the neighbourhood → {"action": "spotify", "params": {"action": "play_song", "query": "Flawless The Neighbourhood"}}\n'
-    '  [song] by [artist] / [song] by [artist name] → {"action": "spotify", "params": {"action": "play_song", "query": "[song] [artist]"}}\n'
-    '  the neighbourhood / [bare artist name with no other context] → {"action": "spotify", "params": {"action": "play_artist", "query": "The Neighbourhood"}}\n'
-    '  turn volume up to 80 / volume 80 / set volume 50 → {"action": "spotify", "params": {"action": "volume", "level": 80}}\n'
-    "  IMPORTANT: if the entire message is just an artist name, song name, or '[song] by [artist]' "
-    "with no other context (no task words, no question words, no commands other than implicit play), "
-    "treat it as a Spotify play request — use play_song for song/song+artist, play_artist for artist alone.\n\n"
-
-    "NEVER show JSON to the user. ALWAYS use the exact JSON format shown above when calling a skill. "
-    "For general conversation or questions you can answer directly, respond in plain text only."
+    "You are Jarvis, a highly intelligent AI assistant for Saachi (pronounced SAH-chee) — "
+    "inspired by Jarvis from Iron Man. "
+    "You are concise, witty, and speak with calm confidence. "
+    "Keep responses under 3 sentences unless asked for more.\n\n"
+    "Use the available tools whenever a request requires action. "
+    "For general conversation or questions you can answer directly, respond in plain text only.\n\n"
+    "KEY ROUTING RULES:\n"
+    "- Any request involving music, songs, artists, play/pause/skip, or audio playback → spotify tool. "
+    "  Exception: 'open Spotify' the app → system tool.\n"
+    "- If the message is just an artist name, song name, or '[song] by [artist]' with no other words, "
+    "  treat it as a Spotify play request.\n"
+    "- Calendar reads: set query to 'today', 'tomorrow', 'week', or 'next_event'.\n"
+    "- Calendar creates: set action to 'create' with title, date (YYYY-MM-DD), "
+    "  start_time and end_time (HH:MM 24-hour).\n"
+    "- Task adds: use date='TODAY' if the task is for today, otherwise YYYY-MM-DD.\n"
+    "- NEVER fabricate URLs — only use URLs explicitly provided by the user."
 )
+
+TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "calendar",
+            "description": (
+                "Read or create Google Calendar events. "
+                "To read: set query to 'today', 'tomorrow', 'week', or 'next_event'. "
+                "To create: set action to 'create' and provide title, date (YYYY-MM-DD), "
+                "start_time and end_time (HH:MM 24-hour format)."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["create"],
+                        "description": "Set to 'create' when adding a new event",
+                    },
+                    "query": {
+                        "type": "string",
+                        "enum": ["today", "tomorrow", "week", "next_event"],
+                        "description": "Which events to fetch (read operations only)",
+                    },
+                    "title":      {"type": "string"},
+                    "date":       {"type": "string", "description": "YYYY-MM-DD"},
+                    "start_time": {"type": "string", "description": "HH:MM 24-hour"},
+                    "end_time":   {"type": "string", "description": "HH:MM 24-hour"},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "spotify",
+            "description": "Control Spotify playback — play, pause, skip, search songs and artists, set volume",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": [
+                            "play", "pause", "next", "previous",
+                            "play_song", "play_artist", "what_playing", "volume",
+                        ],
+                    },
+                    "query": {
+                        "type": "string",
+                        "description": "Song or artist name for play_song / play_artist",
+                    },
+                    "level": {
+                        "type": "integer",
+                        "description": "Volume level 0–100 (volume action only)",
+                    },
+                },
+                "required": ["action"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "tasks",
+            "description": "Manage tasks in the local task database — list, add, or mark done",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["list", "list_today", "add", "done", "list_done"],
+                    },
+                    "text": {"type": "string", "description": "Task description for add or done"},
+                    "date": {
+                        "type": "string",
+                        "description": "Use 'TODAY' for today's date, or YYYY-MM-DD for a specific date",
+                    },
+                },
+                "required": ["action"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "system",
+            "description": "Control Mac system — open non-music apps, get current time",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["open_app", "get_time"],
+                    },
+                    "app": {"type": "string", "description": "App name for open_app"},
+                },
+                "required": ["action"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "browser",
+            "description": "Control Brave browser — open URLs, or enter study, research, coding, or deep-research mode",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": [
+                            "open_tabs", "study_mode",
+                            "research_mode", "coding_mode", "deep_research",
+                        ],
+                    },
+                    "query":  {
+                        "type": "string",
+                        "description": "Search topic for research_mode, coding_mode, deep_research",
+                    },
+                    "course": {
+                        "type": "string",
+                        "description": "Course name for study_mode",
+                    },
+                    "urls": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "URLs to open for open_tabs",
+                    },
+                },
+                "required": ["action"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "timer",
+            "description": "Set a countdown timer with an optional label",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "duration_minutes": {"type": "number"},
+                    "label":            {"type": "string"},
+                },
+                "required": ["duration_minutes"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search",
+            "description": "Search across tasks, calendar, and StudySync",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string"},
+                    "source": {
+                        "type": "string",
+                        "enum": ["all", "tasks", "calendar", "studysync"],
+                    },
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "studysync",
+            "description": "Access StudySync courses and lecture materials",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": [
+                            "list_courses", "list_lectures", "search",
+                            "cheatsheet", "quiz", "download_lecture",
+                        ],
+                    },
+                    "course":        {"type": "string"},
+                    "query":         {"type": "string"},
+                    "lecture_title": {"type": "string"},
+                },
+                "required": ["action"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "web",
+            "description": "Search the web via DuckDuckGo",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string"},
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "file",
+            "description": "Open files, folders, or VS Code",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": [
+                            "open_vscode", "open_vscode_path",
+                            "open_file", "open_folder", "download_and_open",
+                        ],
+                    },
+                    "path":     {"type": "string"},
+                    "url":      {"type": "string"},
+                    "filename": {"type": "string"},
+                },
+                "required": ["action"],
+            },
+        },
+    },
+]
 
 
 class Brain:
@@ -96,17 +261,34 @@ class Brain:
         self._history: list[dict] = []
         self._client = ollama.Client(host=OLLAMA_URL)
 
-    def think(self, user_input: str) -> Optional[str]:
+    def think(self, user_input: str) -> Optional[Union[str, dict]]:
         self._history.append({"role": "user", "content": user_input})
         messages = [{"role": "system", "content": SYSTEM_PROMPT}] + self._history
 
         try:
-            response = self._client.chat(model=OLLAMA_MODEL, messages=messages)
-            reply = response["message"]["content"].strip()
-            self._history.append({"role": "assistant", "content": reply})
+            response = self._client.chat(
+                model=OLLAMA_MODEL,
+                messages=messages,
+                tools=TOOLS,
+            )
+
+            if response.message.tool_calls:
+                tool_call = response.message.tool_calls[0]
+                result: Union[str, dict] = {
+                    "action": tool_call.function.name,
+                    "params": dict(tool_call.function.arguments),
+                }
+                self._history.append({"role": "assistant", "content": ""})
+            else:
+                reply = (response.message.content or "").strip()
+                self._history.append({"role": "assistant", "content": reply})
+                result = reply
+
             if len(self._history) > MAX_HISTORY * 2:
                 self._history = self._history[-(MAX_HISTORY * 2):]
-            return reply
+
+            return result
+
         except Exception as e:
             logger.error("Brain error: %s", e)
             return None
