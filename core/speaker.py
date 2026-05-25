@@ -14,6 +14,7 @@ _TMP_MP3 = "/tmp/jarvis_tts.mp3"
 _TMP_WAV = "/tmp/jarvis_tts.wav"
 
 _piper_warned = False
+is_speaking   = False  # read by listener.py to suppress recording during playback
 
 
 def _clean_text(text: str) -> str:
@@ -76,7 +77,6 @@ def _speak_piper(text: str) -> bool:
         return False
 
     try:
-        # python3 -m piper reads text from stdin, writes WAV to --output_file
         result = subprocess.run(
             ["python3", "-m", "piper", "--model", piper_model, "--output_file", _TMP_WAV],
             input=text.encode("utf-8"),
@@ -111,13 +111,18 @@ def _tts_text(text: str) -> str:
 
 
 def speak(text: str):
+    global is_speaking
     cleaned = _clean_text(text)
     if not cleaned:
         return
     print(f"\nJarvis: {cleaned}\n")
     tts = _tts_text(cleaned)
-    if _speak_elevenlabs(tts):
-        return
-    if _speak_piper(tts):
-        return
-    _speak_say(tts)
+    is_speaking = True
+    try:
+        if _speak_elevenlabs(tts):
+            return
+        if _speak_piper(tts):
+            return
+        _speak_say(tts)
+    finally:
+        is_speaking = False

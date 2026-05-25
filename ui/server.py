@@ -87,10 +87,12 @@ def _fetch_now_playing() -> dict:
 def _spotify_poller():
     global _now_playing
     while True:
-        time.sleep(15)
+        time.sleep(30)
         data = _fetch_now_playing()
-        _now_playing = data
-        socketio.emit("now_playing_update", _now_playing)
+        if data["track"] != _now_playing["track"] or data["artist"] != _now_playing["artist"]:
+            _now_playing = data
+            socketio.emit("now_playing_update", _now_playing)
+            print(f"[Server] Now playing: {data['track']} — {data['artist']}")
 
 
 # ── StudySync poller ─────────────────────────────────────────────────────────

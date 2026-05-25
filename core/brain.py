@@ -73,9 +73,16 @@ SYSTEM_PROMPT = (
     '  previous / go back / last song → {"action": "spotify", "params": {"action": "previous"}}\n'
     '  what song is this / what\'s playing / what\'s on → {"action": "spotify", "params": {"action": "what_playing"}}\n'
     '  play Cruel Summer / play [song name] → {"action": "spotify", "params": {"action": "play_song", "query": "Cruel Summer"}}\n'
+    '  play flawless → {"action": "spotify", "params": {"action": "play_song", "query": "flawless"}}\n'
     '  play Taylor Swift / play [artist name] → {"action": "spotify", "params": {"action": "play_artist", "query": "Taylor Swift"}}\n'
     '  play some Taylor Swift → {"action": "spotify", "params": {"action": "play_artist", "query": "Taylor Swift"}}\n'
-    '  turn volume up to 80 / volume 80 / set volume 50 → {"action": "spotify", "params": {"action": "volume", "level": 80}}\n\n'
+    '  flawless by the neighbourhood → {"action": "spotify", "params": {"action": "play_song", "query": "Flawless The Neighbourhood"}}\n'
+    '  [song] by [artist] / [song] by [artist name] → {"action": "spotify", "params": {"action": "play_song", "query": "[song] [artist]"}}\n'
+    '  the neighbourhood / [bare artist name with no other context] → {"action": "spotify", "params": {"action": "play_artist", "query": "The Neighbourhood"}}\n'
+    '  turn volume up to 80 / volume 80 / set volume 50 → {"action": "spotify", "params": {"action": "volume", "level": 80}}\n'
+    "  IMPORTANT: if the entire message is just an artist name, song name, or '[song] by [artist]' "
+    "with no other context (no task words, no question words, no commands other than implicit play), "
+    "treat it as a Spotify play request — use play_song for song/song+artist, play_artist for artist alone.\n\n"
 
     "NEVER show JSON to the user. ALWAYS use the exact JSON format shown above when calling a skill. "
     "For general conversation or questions you can answer directly, respond in plain text only."
