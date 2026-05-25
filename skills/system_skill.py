@@ -8,31 +8,10 @@ from datetime import datetime
 import requests
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+from base_skill import BaseSkill
+from core.logger import logger
 from config import WEATHER_CITY
-
-
-def execute(params: dict) -> str:
-    action = params.get("action", "")
-
-    if action == "open_app":
-        return _open_app(params.get("app", ""))
-
-    if action == "search_web":
-        return _search_web(params.get("query", ""))
-
-    if action == "set_volume":
-        return _set_volume(params.get("level", 5))
-
-    if action == "get_time":
-        return _get_time()
-
-    if action == "get_weather":
-        return _get_weather()
-
-    if action == "run_command":
-        return _run_command(params.get("command", ""))
-
-    return f"Unknown system action: '{action}'"
 
 
 def _open_app(app: str) -> str:
@@ -73,11 +52,11 @@ def _set_volume(level) -> str:
 
 
 def _get_time() -> str:
-    now = datetime.now()
-    hour = now.strftime("%I").lstrip("0") or "12"
+    now    = datetime.now()
+    hour   = now.strftime("%I").lstrip("0") or "12"
     minute = now.strftime("%M")
     period = now.strftime("%p")
-    day = now.strftime("%A, %B %-d")
+    day    = now.strftime("%A, %B %-d")
     return f"It's {hour}:{minute} {period} on {day}."
 
 
@@ -99,7 +78,7 @@ def _get_weather() -> str:
 def _run_command(command: str) -> str:
     if not command:
         return "No command provided."
-    print(f"\n[System] About to run: {command}")
+    logger.info("About to run command: %s", command)
     try:
         confirm = input("Run this command? (yes/no): ").strip().lower()
     except EOFError:
@@ -124,3 +103,33 @@ def _run_command(command: str) -> str:
         return "Command timed out after 30 seconds."
     except Exception as e:
         return f"Command failed: {e}"
+
+
+def _execute(params: dict) -> str:
+    action = params.get("action", "")
+
+    if action == "open_app":
+        return _open_app(params.get("app", ""))
+    if action == "search_web":
+        return _search_web(params.get("query", ""))
+    if action == "set_volume":
+        return _set_volume(params.get("level", 5))
+    if action == "get_time":
+        return _get_time()
+    if action == "get_weather":
+        return _get_weather()
+    if action == "run_command":
+        return _run_command(params.get("command", ""))
+
+    return f"Unknown system action: '{action}'"
+
+
+class SystemSkill(BaseSkill):
+    name        = "system"
+    description = "OS-level actions: open apps, time, volume, run commands"
+
+    def execute(self, params: dict) -> str:
+        return _execute(params)
+
+
+execute = SystemSkill().execute

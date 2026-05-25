@@ -3,10 +3,16 @@ import os
 import sys
 from datetime import datetime, timedelta, timezone
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+from base_skill import BaseSkill
+
+CONFIG_PATH = os.path.expanduser("~/.notion-planner/config.json")
+TOKEN_PATH  = os.path.expanduser("~/.notion-planner/google-token.json")
+SCOPES      = ["https://www.googleapis.com/auth/calendar.events"]
+
 
 def _iana_tz() -> str:
-    """Return the IANA timezone name for the local system (e.g. 'America/Los_Angeles').
-    Falls back to 'America/Los_Angeles' if detection fails."""
     try:
         tz_path = os.path.realpath("/etc/localtime")
         if "/zoneinfo/" in tz_path:
@@ -14,12 +20,6 @@ def _iana_tz() -> str:
     except Exception:
         pass
     return "America/Los_Angeles"
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-
-CONFIG_PATH = os.path.expanduser("~/.notion-planner/config.json")
-TOKEN_PATH  = os.path.expanduser("~/.notion-planner/google-token.json")
-SCOPES      = ["https://www.googleapis.com/auth/calendar.events"]
 
 
 def _load_credentials():
@@ -74,7 +74,7 @@ def _parse_event_start(event: dict) -> datetime | None:
     start = event.get("start", {})
     if "dateTime" in start:
         return datetime.fromisoformat(start["dateTime"])
-    return None  # all-day event
+    return None
 
 
 def _format_duration(start: datetime, end_raw: dict) -> str:
@@ -148,13 +148,13 @@ def _create_event(service, params: dict) -> str:
 
     service.events().insert(calendarId="primary", body=body).execute()
 
-    friendly_date = start_dt.strftime("%A, %b %-d")
+    friendly_date  = start_dt.strftime("%A, %b %-d")
     friendly_start = start_dt.strftime("%-I:%M %p")
     friendly_end   = end_dt.strftime("%-I:%M %p")
     return f"Added '{title}' on {friendly_date} from {friendly_start} to {friendly_end}."
 
 
-def execute(params: dict) -> str:
+def _execute(params: dict) -> str:
     try:
         service = _build_service()
     except FileNotFoundError as e:
@@ -193,7 +193,6 @@ def execute(params: dict) -> str:
             events = _fetch_events(service, start, start + timedelta(days=7))
             return _friendly_list(events, "this week", include_date=True)
 
-        # Unrecognised query — try to guess intent, default to today
         if "tomorrow" in query:
             start  = _local_midnight(now) + timedelta(days=1)
             events = _fetch_events(service, start, start + timedelta(days=1))
@@ -207,10 +206,21 @@ def execute(params: dict) -> str:
             if not events:
                 return "No upcoming events in the next 30 days."
             return f"Your next event: {_format_event(events[0], include_date=True)}"
-        # Default: today
+
         start  = _local_midnight(now)
         events = _fetch_events(service, start, start + timedelta(days=1))
         return _friendly_list(events, "today")
 
     except Exception as e:
         return f"Calendar error: {e}"
+
+
+class CalendarSkill(BaseSkill):
+    name        = "calendar"
+    description = "Google Calendar read and create"
+
+    def execute(self, params: dict) -> str:
+        return _execute(params)
+
+
+execute = CalendarSkill().execute

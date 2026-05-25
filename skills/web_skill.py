@@ -2,18 +2,19 @@ import sys
 import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+from base_skill import BaseSkill
 from config import OLLAMA_MODEL, OLLAMA_URL
 
 import ollama
 from ddgs import DDGS
 
 
-def execute(params: dict) -> str:
+def _execute(params: dict) -> str:
     query = str(params.get("query", "")).strip()
     if not query:
         return "No search query provided."
 
-    # Fetch top 3 results from DuckDuckGo
     try:
         with DDGS() as ddgs:
             raw_results = list(ddgs.text(query, max_results=3))
@@ -23,7 +24,6 @@ def execute(params: dict) -> str:
     if not raw_results:
         return f"No results found for '{query}'."
 
-    # Build a compact results block for the summarisation prompt
     results_text = "\n\n".join(
         f"Title: {r.get('title', 'N/A')}\nSnippet: {r.get('body', 'N/A')}"
         for r in raw_results
@@ -42,8 +42,18 @@ def execute(params: dict) -> str:
         )
         return response["message"]["content"].strip()
     except Exception as e:
-        # Ollama unavailable — fall back to returning the raw snippets
         snippets = " | ".join(
             r.get("body", "")[:120] for r in raw_results if r.get("body")
         )
         return f"(Summary unavailable — {e}.) Top results: {snippets}"
+
+
+class WebSkill(BaseSkill):
+    name        = "web"
+    description = "DuckDuckGo web search with LLM summarisation"
+
+    def execute(self, params: dict) -> str:
+        return _execute(params)
+
+
+execute = WebSkill().execute

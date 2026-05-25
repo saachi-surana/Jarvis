@@ -4,6 +4,10 @@ import os
 import sys
 from typing import Union
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+from core.logger import logger
+
 SKILL_MAP = {
     "calendar":  "calendar_skill",
     "tasks":     "tasks_skill",
@@ -43,7 +47,7 @@ class Router:
                 "play_music", "play_song", "play_artist", "play", "pause_music",
                 "pause", "next_track", "previous_track", "skip",
             ):
-                print(f"[Router] Intercepting system music action → spotify: {params}")
+                logger.info("Intercepting system music action → spotify: %s", params)
                 return self._dispatch_skill("spotify", params)
             return self._dispatch_skill(action, params)
 
@@ -52,13 +56,11 @@ class Router:
     def _try_parse_json(self, text: str) -> Union[dict, object, None]:
         text = text.strip()
 
-        # Strip markdown fences
         if text.startswith("```"):
             lines = text.splitlines()
             inner = lines[1:-1] if lines[-1].strip() == "```" else lines[1:]
-            text = "\n".join(inner).strip()
+            text  = "\n".join(inner).strip()
 
-        # Fast path: the whole string is JSON
         if text.startswith("{"):
             try:
                 obj = json.loads(text)
@@ -67,12 +69,11 @@ class Router:
             except (json.JSONDecodeError, ValueError):
                 pass
 
-        # Find the first { ... } block anywhere
         brace_pos = text.find("{")
         if brace_pos == -1:
             return None
 
-        depth = 0
+        depth   = 0
         end_pos = -1
         for i, ch in enumerate(text[brace_pos:], brace_pos):
             if ch == "{":
@@ -97,13 +98,12 @@ class Router:
         return None
 
     def _dispatch_skill(self, action: str, params: dict) -> str:
-        print(f"[Router] dispatch → action={action!r}  params={params}")
+        logger.info("Dispatch → action=%r  params=%s", action, params)
         module_name = SKILL_MAP.get(action)
         if not module_name:
             return f"I don't have a skill for '{action}' yet."
         try:
             module = importlib.import_module(module_name)
-            # Force reload so code changes take effect without restart
             importlib.reload(module)
             execute_fn = getattr(module, "execute", None)
             if execute_fn is None:
@@ -114,8 +114,8 @@ class Router:
                 result = asyncio.get_event_loop().run_until_complete(result)
             return str(result)
         except ModuleNotFoundError as e:
-            print(f"[Router] ModuleNotFoundError for {action}: {e}")
+            logger.error("ModuleNotFoundError for %s: %s", action, e)
             return f"Skill '{action}' hasn't been built yet."
         except Exception as e:
-            print(f"[Router] Exception in {action}: {e}")
+            logger.error("Exception in %s: %s", action, e)
             return f"Something went wrong with the {action} skill: {e}"

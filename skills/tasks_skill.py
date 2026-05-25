@@ -5,7 +5,10 @@ from datetime import date, datetime
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-DB_PATH = os.path.expanduser("~/.notion-planner/tasks.db")
+from base_skill import BaseSkill
+from config import NOTION_PLANNER_DIR
+
+DB_PATH = os.path.expanduser(f"{NOTION_PLANNER_DIR}/tasks.db")
 
 
 def _connect() -> sqlite3.Connection:
@@ -34,7 +37,7 @@ def _list_tasks(rows) -> str:
     return "\n".join(f"  • {_format_task(r)}" for r in rows)
 
 
-def execute(params: dict) -> str:
+def _execute(params: dict) -> str:
     action = str(params.get("action", "list")).strip().lower()
 
     try:
@@ -51,23 +54,17 @@ def execute(params: dict) -> str:
         with conn:
             if action == "list":
                 return _do_list(conn)
-
             if action == "list_today":
                 return _do_list_date(conn, date.today().isoformat())
-
             if action == "list_date":
                 date_str = str(params.get("date", date.today().isoformat()))
                 return _do_list_date(conn, date_str)
-
             if action == "add":
                 return _do_add(conn, params)
-
             if action == "done":
                 return _do_done(conn, params)
-
             if action == "list_done":
                 return _do_list_done(conn)
-
             return f"Unknown tasks action '{action}'. Try: list, list_today, list_date, add, done, list_done."
     except Exception as e:
         return f"Tasks error: {e}"
@@ -114,8 +111,7 @@ def _do_add(conn: sqlite3.Connection, params: dict) -> str:
         if date_str and date_str.upper() == "TODAY":
             date_str = date.today().isoformat()
     created_at = datetime.now().isoformat(timespec="seconds")
-    # Place new task at end of sort order
-    max_order = conn.execute("SELECT MAX(sort_order) FROM tasks").fetchone()[0]
+    max_order  = conn.execute("SELECT MAX(sort_order) FROM tasks").fetchone()[0]
     sort_order = (max_order or 0) + 1
     conn.execute(
         "INSERT INTO tasks (text, done, date, created_at, sort_order) VALUES (?, 0, ?, ?, ?)",
@@ -143,7 +139,6 @@ def _do_done(conn: sqlite3.Connection, params: dict) -> str:
     if len(rows) == 1:
         conn.execute("UPDATE tasks SET done = 1 WHERE id = ?", (rows[0]["id"],))
         return f"Marked done: \"{rows[0]['text']}\"."
-    # Multiple matches — mark all and report
     ids = [r["id"] for r in rows]
     conn.execute(f"UPDATE tasks SET done = 1 WHERE id IN ({','.join('?' * len(ids))})", ids)
     titles = ", ".join(f"\"{r['text']}\"" for r in rows)
@@ -160,3 +155,14 @@ def _do_list_done(conn: sqlite3.Connection) -> str:
     if not formatted:
         return "No tasks completed today yet."
     return f"Completed today:\n{formatted}"
+
+
+class TasksSkill(BaseSkill):
+    name        = "tasks"
+    description = "Local task database read and write"
+
+    def execute(self, params: dict) -> str:
+        return _execute(params)
+
+
+execute = TasksSkill().execute

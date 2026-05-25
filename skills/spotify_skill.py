@@ -2,16 +2,22 @@ import base64
 import json
 import os
 import subprocess
+import sys
 import time
 
 import requests
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+from base_skill import BaseSkill
+from core.logger import logger
 
 CONFIG_PATH = os.path.expanduser("~/.notion-planner/config.json")
 TOKEN_PATH  = os.path.expanduser("~/.notion-planner/spotify-token.json")
 API_BASE    = "https://api.spotify.com/v1"
 
 
-# ── credentials & token ─────────────────────────────────────────────────────
+# ── credentials & token ──────────────────────────────────────────────────────
 
 def _load_config() -> dict:
     if not os.path.isfile(CONFIG_PATH):
@@ -59,79 +65,79 @@ def _refresh_access_token(cfg: dict, token: dict) -> dict:
     new_token = resp.json()
     if "refresh_token" not in new_token:
         new_token["refresh_token"] = refresh_token
-    # expires_at is stored in milliseconds
     new_token["expires_at"] = int(time.time() * 1000) + new_token.get("expires_in", 3600) * 1000
     _save_token(new_token)
-    print("[Spotify] Token refreshed successfully.")
+    logger.info("Spotify token refreshed successfully.")
     return new_token
 
 
 def _get_headers() -> dict:
     cfg   = _load_config()
     token = _load_token()
-    # expires_at is a millisecond timestamp; refresh 60 seconds early
     if time.time() * 1000 >= token.get("expires_at", 0) - 60_000:
-        print("[Spotify] Token expired or expiring soon — refreshing.")
+        logger.info("Spotify token expired or expiring soon — refreshing.")
         token = _refresh_access_token(cfg, token)
     return {"Authorization": f"Bearer {token['access_token']}"}
 
 
-# ── device recovery ──────────────────────────────────────────────────────────
+# ── device recovery ───────────────────────────────────────────────────────────
 
 def _poll_for_device(max_attempts: int = 5, interval: float = 1.0) -> str | None:
-    """Poll /me/player/devices until a device appears. Returns device_id or None."""
     for attempt in range(max_attempts):
         try:
-            resp = requests.get(f"{API_BASE}/me/player/devices", headers=_get_headers(), timeout=10)
-            print(f"[Spotify] Devices poll attempt {attempt + 1}: status={resp.status_code}")
+            resp = requests.get(
+                f"{API_BASE}/me/player/devices", headers=_get_headers(), timeout=10
+            )
+            logger.info("Devices poll attempt %d: status=%d", attempt + 1, resp.status_code)
             if resp.ok:
                 devices = resp.json().get("devices", [])
-                print(f"[Spotify] Devices found: {[d.get('name') for d in devices]}")
+                logger.info("Devices found: %s", [d.get("name") for d in devices])
                 if devices:
-                    # Prefer already-active device
                     for d in devices:
                         if d.get("is_active"):
-                            print(f"[Spotify] Using active device: {d['name']} ({d['id']})")
+                            logger.info("Using active device: %s (%s)", d["name"], d["id"])
                             return d["id"]
-                    print(f"[Spotify] Using first available device: {devices[0]['name']} ({devices[0]['id']})")
+                    logger.info(
+                        "Using first available device: %s (%s)",
+                        devices[0]["name"], devices[0]["id"],
+                    )
                     return devices[0]["id"]
         except Exception as e:
-            print(f"[Spotify] Device poll error: {e}")
+            logger.error("Device poll error: %s", e)
         if attempt < max_attempts - 1:
             time.sleep(interval)
     return None
 
 
 def _open_spotify_and_get_device() -> str | None:
-    """Launch Spotify, wait for it to register a device, return device_id."""
-    print("[Spotify] No active device — launching Spotify app.")
+    logger.info("No active device — launching Spotify app.")
     subprocess.Popen(["open", "-a", "Spotify"])
-    time.sleep(4)  # give Spotify time to fully start
+    time.sleep(4)
     return _poll_for_device(max_attempts=5, interval=1.0)
 
 
-# ── low-level request helpers ────────────────────────────────────────────────
+# ── low-level request helpers ─────────────────────────────────────────────────
 
 def _player_put(path: str, body: dict | None = None, device_id: str | None = None) -> str | None:
-    """PUT to Spotify player API. Returns error string or None on success."""
     headers = _get_headers()
     headers["Content-Type"] = "application/json"
     params  = {"device_id": device_id} if device_id else {}
     url     = f"{API_BASE}{path}"
 
     resp = requests.put(url, headers=headers, json=body or {}, params=params, timeout=10)
-    print(f"[Spotify] PUT {path} device_id={device_id} → {resp.status_code}: {resp.text[:200]}")
+    logger.info("PUT %s device_id=%s → %d: %s", path, device_id, resp.status_code, resp.text[:200])
 
     if resp.status_code in (404, 403) and not device_id:
         recovered_id = _open_spotify_and_get_device()
         if not recovered_id:
             return "Spotify launched but no device appeared — please try again in a moment."
-        # Retry with device_id
         retry_h = _get_headers()
         retry_h["Content-Type"] = "application/json"
-        resp2 = requests.put(url, headers=retry_h, json=body or {},
-                             params={"device_id": recovered_id}, timeout=10)
-        print(f"[Spotify] PUT retry device_id={recovered_id} → {resp2.status_code}: {resp2.text[:200]}")
+        resp2 = requests.put(
+            url, headers=retry_h, json=body or {},
+            params={"device_id": recovered_id}, timeout=10,
+        )
+        logger.info("PUT retry device_id=%s → %d: %s", recovered_id, resp2.status_code, resp2.text[:200])
         if resp2.status_code not in (200, 204):
             return f"Spotify error {resp2.status_code}: {resp2.text[:200]}"
         return None
@@ -142,20 +148,22 @@ def _player_put(path: str, body: dict | None = None, device_id: str | None = Non
 
 
 def _player_post(path: str, device_id: str | None = None) -> str | None:
-    """POST to Spotify player API. Returns error string or None on success."""
     headers = _get_headers()
     params  = {"device_id": device_id} if device_id else {}
     url     = f"{API_BASE}{path}"
 
     resp = requests.post(url, headers=headers, params=params, timeout=10)
-    print(f"[Spotify] POST {path} device_id={device_id} → {resp.status_code}: {resp.text[:200]}")
+    logger.info("POST %s device_id=%s → %d: %s", path, device_id, resp.status_code, resp.text[:200])
 
     if resp.status_code in (404, 403) and not device_id:
         recovered_id = _open_spotify_and_get_device()
         if not recovered_id:
             return "Spotify launched but no device appeared — please try again in a moment."
-        resp2 = requests.post(url, headers=_get_headers(), params={"device_id": recovered_id}, timeout=10)
-        print(f"[Spotify] POST retry device_id={recovered_id} → {resp2.status_code}: {resp2.text[:200]}")
+        resp2 = requests.post(
+            url, headers=_get_headers(),
+            params={"device_id": recovered_id}, timeout=10,
+        )
+        logger.info("POST retry device_id=%s → %d: %s", recovered_id, resp2.status_code, resp2.text[:200])
         if resp2.status_code not in (200, 204):
             return f"Spotify error {resp2.status_code}: {resp2.text[:200]}"
         return None
@@ -166,16 +174,11 @@ def _player_post(path: str, device_id: str | None = None) -> str | None:
 
 
 def _play_with_device(path: str, body: dict) -> str | None:
-    """
-    Try to play. If no active device, open Spotify, get a device, then
-    transfer playback to that device first, then send the play command.
-    Returns error string or None on success.
-    """
     headers = _get_headers()
     headers["Content-Type"] = "application/json"
 
     resp = requests.put(f"{API_BASE}{path}", headers=headers, json=body, timeout=10)
-    print(f"[Spotify] play attempt → {resp.status_code}: {resp.text[:200]}")
+    logger.info("Play attempt → %d: %s", resp.status_code, resp.text[:200])
 
     if resp.status_code in (200, 204):
         return None
@@ -185,17 +188,15 @@ def _play_with_device(path: str, body: dict) -> str | None:
         if not device_id:
             return "Spotify launched but no device appeared — please try again in a moment."
 
-        # Transfer playback to the device so it becomes active
         transfer_resp = requests.put(
             f"{API_BASE}/me/player",
             headers={"Authorization": _get_headers()["Authorization"], "Content-Type": "application/json"},
             json={"device_ids": [device_id], "play": False},
             timeout=10,
         )
-        print(f"[Spotify] Transfer playback → {transfer_resp.status_code}: {transfer_resp.text[:200]}")
-        time.sleep(1)  # brief pause after transfer
+        logger.info("Transfer playback → %d: %s", transfer_resp.status_code, transfer_resp.text[:200])
+        time.sleep(1)
 
-        # Now send the actual play command with device_id
         final_headers = _get_headers()
         final_headers["Content-Type"] = "application/json"
         final_resp = requests.put(
@@ -205,7 +206,7 @@ def _play_with_device(path: str, body: dict) -> str | None:
             params={"device_id": device_id},
             timeout=10,
         )
-        print(f"[Spotify] play with device_id={device_id} → {final_resp.status_code}: {final_resp.text[:200]}")
+        logger.info("Play with device_id=%s → %d: %s", device_id, final_resp.status_code, final_resp.text[:200])
         if final_resp.status_code not in (200, 204):
             return f"Spotify error {final_resp.status_code}: {final_resp.text[:200]}"
         return None
@@ -220,14 +221,14 @@ def _search(query: str, search_type: str) -> dict | None:
         params={"q": query, "type": search_type, "limit": 3},
         timeout=10,
     )
-    print(f"[Spotify] search type={search_type} q={query!r} → {resp.status_code}")
+    logger.info("Search type=%s q=%r → %d", search_type, query, resp.status_code)
     if not resp.ok:
-        print(f"[Spotify] search error: {resp.text[:200]}")
+        logger.error("Search error: %s", resp.text[:200])
         return None
     return resp.json()
 
 
-# ── actions ──────────────────────────────────────────────────────────────────
+# ── actions ───────────────────────────────────────────────────────────────────
 
 def _play(params: dict) -> str:
     err = _play_with_device("/me/player/play", {})
@@ -255,13 +256,13 @@ def _what_playing(params: dict) -> str:
         headers=_get_headers(),
         timeout=10,
     )
-    print(f"[Spotify] currently-playing → {resp.status_code}")
+    logger.info("Currently-playing → %d", resp.status_code)
     if resp.status_code == 204:
         return "Nothing is currently playing on Spotify."
     if not resp.ok:
         return f"Spotify error {resp.status_code}: {resp.text[:200]}"
-    data = resp.json()
-    item = data.get("item")
+    data   = resp.json()
+    item   = data.get("item")
     if not item:
         return "Nothing is currently playing."
     track  = item.get("name", "Unknown")
@@ -286,7 +287,7 @@ def _play_song(params: dict) -> str:
     name   = track["name"]
     artist = ", ".join(a["name"] for a in track.get("artists", []))
     uri    = f"spotify:track:{track['id']}"
-    print(f"[Spotify] play_song: {name} by {artist} ({uri})")
+    logger.info("play_song: %s by %s (%s)", name, artist, uri)
 
     err = _play_with_device("/me/player/play", {"uris": [uri]})
     return err or f"Playing {name} by {artist}."
@@ -303,27 +304,25 @@ def _play_artist(params: dict) -> str:
 
     artists = result.get("artists", {}).get("items", [])
     if not artists:
-        # Fallback: try playing a track by this name instead
-        print(f"[Spotify] No artist found for {query!r} — falling back to track search.")
+        logger.info("No artist found for %r — falling back to track search.", query)
         return _play_song(params)
 
-    artist    = artists[0]
-    artist_id = artist["id"]
-    name      = artist["name"]
+    artist      = artists[0]
+    artist_id   = artist["id"]
+    name        = artist["name"]
     context_uri = f"spotify:artist:{artist_id}"
-    print(f"[Spotify] play_artist: {name} ({context_uri})")
+    logger.info("play_artist: %s (%s)", name, context_uri)
 
     err = _play_with_device("/me/player/play", {"context_uri": context_uri})
     if err:
-        # Fallback: play top track by this artist directly
-        print(f"[Spotify] context_uri play failed ({err}), trying top tracks fallback.")
+        logger.info("context_uri play failed (%s), trying top tracks fallback.", err)
         top_resp = requests.get(
             f"{API_BASE}/artists/{artist_id}/top-tracks",
             headers=_get_headers(),
             params={"market": "US"},
             timeout=10,
         )
-        print(f"[Spotify] top-tracks → {top_resp.status_code}: {top_resp.text[:200]}")
+        logger.info("top-tracks → %d: %s", top_resp.status_code, top_resp.text[:200])
         if top_resp.ok:
             tracks = top_resp.json().get("tracks", [])
             if tracks:
@@ -331,7 +330,7 @@ def _play_artist(params: dict) -> str:
                 err2 = _play_with_device("/me/player/play", {"uris": uris})
                 if not err2:
                     return f"Playing {name}."
-        return err  # return original error if both attempts fail
+        return err
 
     return f"Playing {name}."
 
@@ -349,7 +348,7 @@ def _set_volume(params: dict) -> str:
         params={"volume_percent": level},
         timeout=10,
     )
-    print(f"[Spotify] volume={level} → {resp.status_code}: {resp.text[:200]}")
+    logger.info("Volume=%d → %d: %s", level, resp.status_code, resp.text[:200])
 
     if resp.status_code in (404, 403):
         device_id = _open_spotify_and_get_device()
@@ -361,7 +360,7 @@ def _set_volume(params: dict) -> str:
             params={"volume_percent": level, "device_id": device_id},
             timeout=10,
         )
-        print(f"[Spotify] volume retry device_id={device_id} → {resp2.status_code}: {resp2.text[:200]}")
+        logger.info("Volume retry device_id=%s → %d: %s", device_id, resp2.status_code, resp2.text[:200])
         if resp2.status_code not in (200, 204):
             return f"Spotify error {resp2.status_code}: {resp2.text[:200]}"
         return f"Volume set to {level}%."
@@ -370,8 +369,6 @@ def _set_volume(params: dict) -> str:
         return f"Spotify error {resp.status_code}: {resp.text[:200]}"
     return f"Volume set to {level}%."
 
-
-# ── dispatch ─────────────────────────────────────────────────────────────────
 
 _ACTIONS = {
     "play":         _play,
@@ -385,9 +382,9 @@ _ACTIONS = {
 }
 
 
-def execute(params: dict) -> str:
+def _execute(params: dict) -> str:
     action = str(params.get("action", "")).strip()
-    print(f"[Spotify] execute action={action!r}")
+    logger.info("Spotify execute action=%r", action)
     if not action:
         return "No Spotify action specified."
     handler = _ACTIONS.get(action)
@@ -405,5 +402,16 @@ def execute(params: dict) -> str:
         return "Spotify request timed out."
     except Exception as e:
         import traceback
-        print(f"[Spotify] Unexpected error:\n{traceback.format_exc()}")
+        logger.error("Spotify unexpected error:\n%s", traceback.format_exc())
         return f"Spotify error: {e}"
+
+
+class SpotifySkill(BaseSkill):
+    name        = "spotify"
+    description = "Spotify playback control and search"
+
+    def execute(self, params: dict) -> str:
+        return _execute(params)
+
+
+execute = SpotifySkill().execute

@@ -6,17 +6,17 @@ from urllib.parse import quote_plus
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+from base_skill import BaseSkill
+from core.logger import logger
+from config import STUDYSYNC_URL
+
 BRAVE = "Brave Browser"
 
-_SKIP_DOMAINS = {"reddit.com", "quora.com", "pinterest.com", "medium.com"}
-
-_SCORE_3 = {"arxiv.org", "scholar.google.com"}
-_SCORE_2 = {"wikipedia.org", "github.com", "youtube.com"}
-# docs sites: any URL whose hostname starts with "docs." or contains "/docs"
+_SKIP_DOMAINS  = {"reddit.com", "quora.com", "pinterest.com", "medium.com"}
+_SCORE_3       = {"arxiv.org", "scholar.google.com"}
+_SCORE_2       = {"wikipedia.org", "github.com", "youtube.com"}
 _DOCS_PATTERNS = ("docs.", "/docs", "documentation", "readthedocs")
 
-
-# ── low-level openers ─────────────────────────────────────────────────────────
 
 def _open_in_brave(url: str) -> None:
     subprocess.Popen(["open", "-a", BRAVE, url])
@@ -36,32 +36,24 @@ def _ensure_brave_running() -> None:
     time.sleep(1)
 
 
-# ── domain scoring ────────────────────────────────────────────────────────────
-
 def _score_url(url: str) -> int:
     lower = url.lower()
-
     for skip in _SKIP_DOMAINS:
         if skip in lower:
             return 0
-
     for d in _SCORE_3:
         if d in lower:
             return 3
     if ".edu" in lower:
         return 3
-
     for d in _SCORE_2:
         if d in lower:
             return 2
     for p in _DOCS_PATTERNS:
         if p in lower:
             return 2
-
     return 1
 
-
-# ── actions ───────────────────────────────────────────────────────────────────
 
 def _open_tabs(params: dict) -> str:
     urls = params.get("urls", [])
@@ -88,7 +80,6 @@ def _study_mode(params: dict) -> str:
 
     try:
         import requests
-        from config import STUDYSYNC_URL
         resp = requests.get(f"{STUDYSYNC_URL}/lectures", params={"course": course}, timeout=5)
         if resp.ok:
             for lec in resp.json()[:4]:
@@ -97,7 +88,7 @@ def _study_mode(params: dict) -> str:
                     _open_in_brave(url)
                     urls_opened.append(url)
     except Exception as e:
-        print(f"[Browser] StudySync fetch failed: {e}")
+        logger.error("StudySync fetch failed in study_mode: %s", e)
 
     ddg_url = f"https://duckduckgo.com/?q={quote_plus(course)}"
     _open_in_brave(ddg_url)
@@ -107,7 +98,6 @@ def _study_mode(params: dict) -> str:
 
 
 def _research_mode(params: dict) -> str:
-    """DDG search → score by source quality → open top 4 + YouTube."""
     topic = str(params.get("query", "")).strip()
     if not topic:
         return "Please provide a research topic."
@@ -119,23 +109,19 @@ def _research_mode(params: dict) -> str:
     except Exception as e:
         return f"Search failed: {e}"
 
-    # Score, filter skip-domains, sort descending
-    scored = sorted(
+    scored   = sorted(
         [(r, _score_url(r.get("href", ""))) for r in raw if r.get("href")],
         key=lambda x: x[1],
         reverse=True,
     )
-    # Drop score-0 results; take top 4
     top_urls = [r["href"] for r, s in scored if s > 0][:4]
-
-    yt_url = f"https://www.youtube.com/results?search_query={quote_plus(topic)}"
+    yt_url   = f"https://www.youtube.com/results?search_query={quote_plus(topic)}"
     all_urls = top_urls + [yt_url]
 
     _ensure_brave_running()
     for url in all_urls:
         _open_in_brave(url)
 
-    # Build friendly site list for the response
     def _hostname(url: str) -> str:
         try:
             from urllib.parse import urlparse
@@ -175,18 +161,16 @@ def _coding_mode(params: dict) -> str:
 
 
 def _deep_research(params: dict) -> str:
-    """Academic deep-dive: arxiv + GitHub + top DDG results in a new Brave window."""
     topic = str(params.get("query", "")).strip()
     if not topic:
         return "Please provide a research topic."
 
-    enc = quote_plus(topic)
+    enc  = quote_plus(topic)
     urls = [
         f"https://arxiv.org/search/?searchtype=all&query={enc}",
         f"https://github.com/search?q={enc}&type=repositories",
     ]
 
-    # Top 3 DDG results (skip low-quality domains)
     try:
         from duckduckgo_search import DDGS
         with DDGS() as ddgs:
@@ -197,19 +181,16 @@ def _deep_research(params: dict) -> str:
         ][:3]
         urls.extend(ddg_picks)
     except Exception as e:
-        print(f"[Browser] DDG failed in deep_research: {e}")
+        logger.error("DDG failed in deep_research: %s", e)
 
-    # First URL opens a new window; remaining open as tabs in that window
     if urls:
         _open_in_new_brave_window(urls[0])
-        time.sleep(0.8)  # let the window fully open before adding tabs
+        time.sleep(0.8)
         for url in urls[1:]:
             _open_in_brave(url)
 
     return f"Deep research mode activated for {topic}."
 
-
-# ── dispatch ─────────────────────────────────────────────────────────────────
 
 _ACTIONS = {
     "open_tabs":     _open_tabs,
@@ -220,7 +201,7 @@ _ACTIONS = {
 }
 
 
-def execute(params: dict) -> str:
+def _execute(params: dict) -> str:
     action = str(params.get("action", "")).strip()
     if not action:
         return "No browser action specified."
@@ -231,5 +212,16 @@ def execute(params: dict) -> str:
         return handler(params)
     except Exception as e:
         import traceback
-        print(f"[Browser] Unexpected error:\n{traceback.format_exc()}")
+        logger.error("Unexpected browser error:\n%s", traceback.format_exc())
         return f"Browser error: {e}"
+
+
+class BrowserSkill(BaseSkill):
+    name        = "browser"
+    description = "Brave Browser automation: tabs, study/research/coding modes"
+
+    def execute(self, params: dict) -> str:
+        return _execute(params)
+
+
+execute = BrowserSkill().execute

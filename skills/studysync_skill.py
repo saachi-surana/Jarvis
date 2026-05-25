@@ -5,6 +5,8 @@ import sys
 import requests
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+from base_skill import BaseSkill
 from config import STUDYSYNC_URL
 
 _NOT_RUNNING = "StudySync isn't running. Start it and try again."
@@ -21,34 +23,6 @@ def _post(path: str, payload: dict) -> requests.Response:
 
 def _connection_error(e: Exception) -> bool:
     return isinstance(e, (requests.exceptions.ConnectionError, requests.exceptions.Timeout))
-
-
-def execute(params: dict) -> str:
-    action = str(params.get("action", "")).strip().lower()
-
-    try:
-        if action == "list_courses":
-            return _list_courses()
-        if action == "list_lectures":
-            return _list_lectures(params.get("course", ""))
-        if action == "search":
-            return _search(params.get("query", ""), params.get("course"))
-        if action == "cheatsheet":
-            return _generate(params.get("lecture_title", ""), "cheatsheet")
-        if action == "quiz":
-            return _generate(params.get("lecture_title", ""), "quiz")
-        if action == "download_lecture":
-            return _download_lecture(params.get("lecture_title", ""))
-        return (
-            f"Unknown StudySync action '{action}'. "
-            "Try: list_courses, list_lectures, search, cheatsheet, quiz, download_lecture."
-        )
-    except requests.exceptions.ConnectionError:
-        return _NOT_RUNNING
-    except requests.exceptions.Timeout:
-        return "StudySync took too long to respond. Try again."
-    except Exception as e:
-        return f"StudySync error: {e}"
 
 
 def _list_courses() -> str:
@@ -158,7 +132,6 @@ def _download_lecture(lecture_title: str) -> str:
     if not lecture_title:
         return "Please provide a lecture title to download."
 
-    # Fetch all lectures and build course id→name map
     lectures_resp = _get("/lectures")
     lectures_resp.raise_for_status()
     lectures = lectures_resp.json()
@@ -174,7 +147,6 @@ def _download_lecture(lecture_title: str) -> str:
     matched_title = match["title"]
     course_name   = id_to_name.get(match.get("course_id"), "Unknown Course")
 
-    # Find a downloadable URL — check common field names
     file_url = (
         match.get("file_url")
         or match.get("slides_url")
@@ -185,13 +157,11 @@ def _download_lecture(lecture_title: str) -> str:
     if not file_url or not str(file_url).startswith("http"):
         return f"No files available for '{matched_title}'."
 
-    # Build destination path: ~/Downloads/StudySync/{course}/{title}.pdf
     safe_course = _safe_name(course_name)
     safe_title  = _safe_name(matched_title)
     dest_dir    = os.path.join(_DOWNLOADS, safe_course)
     os.makedirs(dest_dir, exist_ok=True)
 
-    # Infer extension from URL, default to .pdf
     url_path = file_url.split("?")[0]
     ext      = os.path.splitext(url_path)[1] or ".pdf"
     dest     = os.path.join(dest_dir, safe_title + ext)
@@ -205,16 +175,11 @@ def _download_lecture(lecture_title: str) -> str:
     except requests.exceptions.RequestException as e:
         return f"Download failed: {e}"
 
-    # Auto-open the file
     subprocess.run(["open", dest], check=False)
-
     return f"Downloaded and opened '{matched_title}' ({safe_title}{ext}) — saved to {dest}."
 
 
-# ── utilities ─────────────────────────────────────────────────────────────────
-
 def _fuzzy_find(query: str, items: list, key: str):
-    """Exact match first, then substring match (case-insensitive)."""
     lower_q = query.lower()
     for item in items:
         if item.get(key, "").lower() == lower_q:
@@ -226,5 +191,43 @@ def _fuzzy_find(query: str, items: list, key: str):
 
 
 def _safe_name(name: str) -> str:
-    """Strip characters unsafe for filesystem paths."""
     return "".join(c if c.isalnum() or c in " ._-" else "_" for c in name).strip()
+
+
+def _execute(params: dict) -> str:
+    action = str(params.get("action", "")).strip().lower()
+
+    try:
+        if action == "list_courses":
+            return _list_courses()
+        if action == "list_lectures":
+            return _list_lectures(params.get("course", ""))
+        if action == "search":
+            return _search(params.get("query", ""), params.get("course"))
+        if action == "cheatsheet":
+            return _generate(params.get("lecture_title", ""), "cheatsheet")
+        if action == "quiz":
+            return _generate(params.get("lecture_title", ""), "quiz")
+        if action == "download_lecture":
+            return _download_lecture(params.get("lecture_title", ""))
+        return (
+            f"Unknown StudySync action '{action}'. "
+            "Try: list_courses, list_lectures, search, cheatsheet, quiz, download_lecture."
+        )
+    except requests.exceptions.ConnectionError:
+        return _NOT_RUNNING
+    except requests.exceptions.Timeout:
+        return "StudySync took too long to respond. Try again."
+    except Exception as e:
+        return f"StudySync error: {e}"
+
+
+class StudySyncSkill(BaseSkill):
+    name        = "studysync"
+    description = "StudySync course, lecture, and content management"
+
+    def execute(self, params: dict) -> str:
+        return _execute(params)
+
+
+execute = StudySyncSkill().execute

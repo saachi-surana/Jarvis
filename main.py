@@ -15,6 +15,7 @@ import requests
 sys.path.insert(0, os.path.dirname(__file__))
 
 from config import OLLAMA_URL
+from core.logger import logger
 from core.transcriber import Transcriber
 from core.brain import Brain
 from core.router import Router
@@ -47,13 +48,13 @@ def process_input(text: str, on_response=None):
     # Farewell — skip the brain and return to wake-word standby
     lower = text.strip().lower()
     if any(phrase in lower for phrase in _DISMISS_PHRASES):
-        print(f"[You]: {text}")
+        logger.info("[You]: %s", text)
         speak(_DISMISS_REPLY)
         if on_response:
             on_response(_DISMISS_REPLY)
         return
 
-    print(f"[You]: {text}")
+    logger.info("[You]: %s", text)
     raw = _brain.think(text)
     if raw is None:
         msg = "I seem to be having trouble thinking right now. Is Ollama still running?"
@@ -72,7 +73,7 @@ def main():
 
     # ── Startup check ──────────────────────────────────────────────────────
     if not _check_ollama():
-        print("\n[ERROR] Ollama is not running. Start it with:  ollama serve\n")
+        logger.error("Ollama is not running. Start it with: ollama serve")
         sys.exit(1)
 
     # ── Init pipeline ──────────────────────────────────────────────────────
@@ -92,11 +93,11 @@ def main():
         voice_status = "Piper TTS (Alan, en_GB)"
     else:
         voice_status = "macOS 'say' (Daniel) fallback"
-    print("\n=== Jarvis System Status ===")
-    print(f"  Ollama          ✓  ({OLLAMA_URL})")
-    print(f"  Wake word       {listener.wake_word_status}")
-    print(f"  Voice engine    {voice_status}")
-    print("============================\n")
+    logger.info("=== Jarvis System Status ===")
+    logger.info("  Ollama          ok  (%s)", OLLAMA_URL)
+    logger.info("  Wake word       %s", listener.wake_word_status)
+    logger.info("  Voice engine    %s", voice_status)
+    logger.info("============================\n")
 
     # ── Init web UI server ─────────────────────────────────────────────────
     ui_server.init(process_input, listener, _transcriber)
@@ -130,7 +131,7 @@ def main():
         while not stop_event.wait(timeout=1):
             pass
     except KeyboardInterrupt:
-        print("\n[Jarvis] Shutting down.")
+        logger.info("Shutting down.")
     finally:
         listener.stop()
 

@@ -1,8 +1,10 @@
 import sys
 import os
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from config import OLLAMA_MODEL, OLLAMA_URL
+from config import OLLAMA_MODEL, OLLAMA_URL, MAX_HISTORY
+from core.logger import logger
 from typing import Optional
 import ollama
 
@@ -88,8 +90,6 @@ SYSTEM_PROMPT = (
     "For general conversation or questions you can answer directly, respond in plain text only."
 )
 
-MAX_HISTORY = 10
-
 
 class Brain:
     def __init__(self):
@@ -108,7 +108,7 @@ class Brain:
                 self._history = self._history[-(MAX_HISTORY * 2):]
             return reply
         except Exception as e:
-            print(f"[Brain] ERROR: {e}")
+            logger.error("Brain error: %s", e)
             return None
 
     def reset_history(self):

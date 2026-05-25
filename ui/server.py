@@ -11,6 +11,9 @@ from flask_socketio import SocketIO, emit
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+from core.logger import logger
+from config import SPOTIFY_POLL_INTERVAL, WEATHER_POLL_INTERVAL, STUDYSYNC_POLL_INTERVAL
+
 app = Flask(__name__, static_folder="static")
 app.config["SECRET_KEY"] = "jarvis-hud-secret"
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
@@ -53,7 +56,7 @@ def _fetch_weather() -> dict:
             "desc":  desc or "PARTLY CLOUDY",
         }
     except Exception as e:
-        print(f"[Server] Weather fetch failed: {e}")
+        logger.error("Weather fetch failed: %s", e)
         return {}
 
 
@@ -64,8 +67,8 @@ def _weather_poller():
         if result:
             _weather = result
             socketio.emit("weather_update", _weather)
-            print(f"[Server] Weather: {_weather['temp']}°F ({_weather['desc']})")
-        time.sleep(600)  # 10 minutes
+            logger.info("Weather: %s°F (%s)", _weather['temp'], _weather['desc'])
+        time.sleep(WEATHER_POLL_INTERVAL)
 
 
 # ── Spotify poller ───────────────────────────────────────────────────────────
@@ -74,25 +77,25 @@ def _fetch_now_playing() -> dict:
     try:
         from skills.spotify_skill import execute as spotify_execute
         result = spotify_execute({"action": "what_playing"})
-        print(f"[Server] Spotify raw: {result!r}")
+        logger.info("Spotify raw: %r", result)
         if result.startswith("Playing:"):
             m = re.match(r"Playing: (.+) by (.+)\.", result)
             if m:
                 return {"track": m.group(1), "artist": m.group(2)}
     except Exception as e:
-        print(f"[Server] Spotify fetch failed: {e}")
+        logger.error("Spotify fetch failed: %s", e)
     return {"artist": "--", "track": "--"}
 
 
 def _spotify_poller():
     global _now_playing
     while True:
-        time.sleep(30)
+        time.sleep(SPOTIFY_POLL_INTERVAL)
         data = _fetch_now_playing()
         if data["track"] != _now_playing["track"] or data["artist"] != _now_playing["artist"]:
             _now_playing = data
             socketio.emit("now_playing_update", _now_playing)
-            print(f"[Server] Now playing: {data['track']} — {data['artist']}")
+            logger.info("Now playing: %s — %s", data['track'], data['artist'])
 
 
 # ── StudySync poller ─────────────────────────────────────────────────────────
@@ -116,7 +119,7 @@ def _fetch_studysync_courses() -> list:
                 courses.append(item)
         return courses
     except Exception as e:
-        print(f"[Server] StudySync fetch failed: {e}")
+        logger.error("StudySync fetch failed: %s", e)
         return []
 
 
@@ -126,8 +129,8 @@ def _studysync_poller():
         courses = _fetch_studysync_courses()
         _studysync_courses = courses
         socketio.emit("studysync_update", {"courses": courses})
-        print(f"[Server] StudySync poller emitted {len(courses)} courses.")
-        time.sleep(1800)  # 30 minutes
+        logger.info("StudySync poller emitted %d courses.", len(courses))
+        time.sleep(STUDYSYNC_POLL_INTERVAL)
 
 
 # ── Init & run ────────────────────────────────────────────────────────────────
@@ -142,7 +145,7 @@ def init(process_input_fn, listener, transcriber):
     # Fetch Spotify state synchronously so _now_playing is ready before any client connects
     global _now_playing
     _now_playing = _fetch_now_playing()
-    print(f"[Server] Initial now_playing: {_now_playing}")
+    logger.info("Initial now_playing: %s", _now_playing)
 
     # Start background pollers
     threading.Thread(target=_weather_poller, daemon=True).start()

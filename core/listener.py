@@ -6,39 +6,45 @@
 
 import collections
 import math
+import os
 import queue
 import subprocess
+import sys
 import threading
 import time
 
 import numpy as np
 import sounddevice as sd
 
-SAMPLE_RATE          = 16000
-CHANNELS             = 1
-DTYPE                = 'int16'
-BLOCKSIZE            = 1280     # exactly 80 ms at 16 kHz — required by openwakeword
-WAKE_SCORE_THRESHOLD = 0.5
-SILENCE_THRESHOLD    = 900      # RMS below this is considered silence
-SILENCE_DURATION     = 1.5     # seconds of consecutive silence to end recording
-MAX_RECORD_SECONDS   = 12
-MIN_RECORD_SECONDS   = 1.0      # discard recordings shorter than this
-PIPELINE_START_WAIT  = 20.0    # max seconds to wait for speaker to start after on_audio()
-WAKE_COOLDOWN        = 2.0     # seconds to wait after speaker finishes before re-arming
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-# Rolling pre-buffer: capture ~0.5s of audio before wake word fires so the
-# first word of the command (spoken right as OWW locks in) isn't clipped.
+from core.logger import logger
+from config import (
+    CHIME_SOUND,
+    WAKE_WORD_THRESHOLD,
+    WAKE_WORD_COOLDOWN,
+    SILENCE_THRESHOLD,
+    MAX_RECORD_SECONDS,
+    MIN_RECORD_SECONDS,
+)
+
+SAMPLE_RATE     = 16000
+CHANNELS        = 1
+DTYPE           = "int16"
+BLOCKSIZE       = 1280      # exactly 80 ms at 16 kHz — required by openwakeword
+SILENCE_DURATION = 1.5     # seconds of consecutive silence to end recording
+PIPELINE_START_WAIT = 20.0 # max seconds to wait for speaker to start after on_audio()
+
+# Rolling pre-buffer: capture ~0.5s before wake word fires so the
+# first word of the command isn't clipped.
 PRE_BUFFER_CHUNKS = max(1, int(SAMPLE_RATE / BLOCKSIZE * 0.5))  # ≈ 6 chunks
 
 
-def _play_chime():
+def _play_chime() -> None:
     try:
-        subprocess.run(
-            ["afplay", "/System/Library/Sounds/Ping.aiff"],
-            capture_output=True,
-        )
+        subprocess.run(["afplay", CHIME_SOUND], capture_output=True)
     except Exception as e:
-        print(f"[Listener] Chime failed: {e}")
+        logger.error("Listener chime failed: %s", e)
 
 
 def _rms(chunk: np.ndarray) -> float:
@@ -56,15 +62,15 @@ def _speaker_is_speaking() -> bool:
 
 class Listener:
     def __init__(self, on_audio_callback):
-        self.on_audio          = on_audio_callback
-        self._oww_model        = None
-        self._oww_active       = False   # True when OWW model loaded and detection enabled
-        self._stop_event       = threading.Event()
-        self._audio_q          = queue.Queue()  # detection path
-        self._record_q         = queue.Queue()  # recording path
-        self._recording        = False          # routes callback output to _record_q when True
-        self._record_lock      = threading.Lock()  # prevents concurrent recording sessions
-        self._pre_buf          = collections.deque(maxlen=PRE_BUFFER_CHUNKS)  # rolling pre-wake buffer
+        self.on_audio     = on_audio_callback
+        self._oww_model   = None
+        self._oww_active  = False
+        self._stop_event  = threading.Event()
+        self._audio_q     = queue.Queue()
+        self._record_q    = queue.Queue()
+        self._recording   = False
+        self._record_lock = threading.Lock()
+        self._pre_buf     = collections.deque(maxlen=PRE_BUFFER_CHUNKS)
         self._init_openwakeword()
 
     def _init_openwakeword(self):
@@ -72,9 +78,9 @@ class Listener:
             from openwakeword.model import Model
             self._oww_model  = Model(wakeword_models=["hey_jarvis"], inference_framework="onnx")
             self._oww_active = True
-            print("[Listener] Wake word 'hey jarvis' active via openwakeword.")
+            logger.info("Wake word 'hey jarvis' active via openwakeword.")
         except Exception as e:
-            print(f"[Listener] WARNING: openwakeword init failed ({e}) — mic button only.")
+            logger.warning("openwakeword init failed (%s) — mic button only.", e)
 
     @property
     def wake_word_status(self) -> str:
@@ -92,34 +98,26 @@ class Listener:
     # ── Post-pipeline blocking wait ─────────────────────────────────────────
 
     def _wait_until_response_done(self):
-        """
-        Block the detection loop until the full pipeline finishes:
-        transcribe → LLM → speak. Then apply a cooldown before re-arming
-        wake word detection to avoid immediately re-triggering.
-        """
-        # Give the pipeline up to PIPELINE_START_WAIT seconds to start speaking.
         deadline = time.monotonic() + PIPELINE_START_WAIT
         while time.monotonic() < deadline:
             if _speaker_is_speaking():
                 break
             time.sleep(0.1)
 
-        # Wait for speaking to finish.
         while _speaker_is_speaking():
             time.sleep(0.1)
 
-        # Cooldown — drain audio that accumulated during the response.
-        print(f"[Listener] Response done — {WAKE_COOLDOWN}s cooldown before re-arming.")
-        time.sleep(WAKE_COOLDOWN)
+        logger.info("Response done — %.1fs cooldown before re-arming.", WAKE_WORD_COOLDOWN)
+        time.sleep(WAKE_WORD_COOLDOWN)
         self._drain(self._audio_q)
         self._pre_buf.clear()
         self._oww_model.reset()
-        print("[Listener] Wake word detection re-armed.")
+        logger.info("Wake word detection re-armed.")
 
     # ── Wake word detection loop ────────────────────────────────────────────
 
     def _listen_loop(self):
-        print("[Listener] Listening for wake word...")
+        logger.info("Listening for wake word...")
         with sd.InputStream(
             samplerate=SAMPLE_RATE,
             channels=CHANNELS,
@@ -133,43 +131,31 @@ class Listener:
                 except queue.Empty:
                     continue
 
-                # Skip detection entirely while Jarvis is speaking.
                 if _speaker_is_speaking():
                     continue
 
-                # Maintain rolling pre-buffer so we can rescue audio that
-                # arrived just before/during wake word confirmation.
                 self._pre_buf.append(chunk)
 
                 scores = self._oww_model.predict(chunk.flatten())
-                if any(s >= WAKE_SCORE_THRESHOLD for s in scores.values()):
-                    print("[Listener] Wake word detected.")
-                    # Snapshot pre-buffer before chime introduces a gap.
+                if any(s >= WAKE_WORD_THRESHOLD for s in scores.values()):
+                    logger.info("Wake word detected.")
                     pre_frames = list(self._pre_buf)
                     _play_chime()
                     self._oww_model.reset()
                     audio_bytes = self._collect_recording(pre_frames=pre_frames)
                     if audio_bytes:
                         self.on_audio(audio_bytes)
-                        # Block detection until the full pipeline (speak) completes
-                        # and the cooldown elapses, so mid-response audio is ignored.
                         self._wait_until_response_done()
                     else:
-                        print("[Listener] Discarded short/silent recording after wake word.")
+                        logger.info("Discarded short/silent recording after wake word.")
 
     # ── Core recording logic ────────────────────────────────────────────────
 
     def _collect_recording(self, pre_frames=None) -> bytes | None:
-        """
-        Switch to recording mode and collect frames until silence or timeout.
-        pre_frames: chunks captured before this call (pre-buffer + chime gap).
-        Serialised by _record_lock so two sessions cannot overlap.
-        """
         pre_frames = list(pre_frames or [])
 
         with self._record_lock:
-            # Rescue any audio that queued in _audio_q during wake processing
-            # and chime playback — afplay blocks ~0.4s, losing the first word.
+            # Rescue audio that queued during wake detection + chime playback
             chime_gap = []
             while not self._audio_q.empty():
                 try:
@@ -200,12 +186,14 @@ class Listener:
 
         n_rescued = len(pre_frames) + len(chime_gap)
         if len(frames) < min_chunks:
-            print(f"[Listener] Recording too short ({len(frames)} chunks < {min_chunks}) — discarding.")
+            logger.info(
+                "Recording too short (%d chunks < %d) — discarding.", len(frames), min_chunks
+            )
             return None
 
-        audio = np.concatenate(frames).flatten().tobytes()
+        audio      = np.concatenate(frames).flatten().tobytes()
         duration_s = len(audio) / (SAMPLE_RATE * 2)
-        print(f"[Listener] Recorded {duration_s:.2f}s ({n_rescued} rescued pre-recording frames).")
+        logger.info("Recorded %.2fs (%d rescued pre-recording frames).", duration_s, n_rescued)
         return audio
 
     @staticmethod
@@ -219,29 +207,24 @@ class Listener:
     # ── Public API ──────────────────────────────────────────────────────────
 
     def trigger_recording(self):
-        """Manually start a recording — called by the mic button in the HUD."""
         if _speaker_is_speaking():
-            print("[Listener] Skipping mic trigger — Jarvis is currently speaking.")
+            logger.info("Skipping mic trigger — Jarvis is currently speaking.")
             return
 
         _play_chime()
 
         if self._oww_active:
-            # Detection stream is already running — reuse it.
-            # Drain stale detection chunks so the wake model stays clean.
             self._drain(self._audio_q)
             audio_bytes = self._collect_recording()
         else:
-            # No detection stream running — open a temporary one.
             audio_bytes = self._record_standalone()
 
         if audio_bytes:
             self.on_audio(audio_bytes)
         else:
-            print("[Listener] Discarded short/silent recording from mic button.")
+            logger.info("Discarded short/silent recording from mic button.")
 
     def _record_standalone(self) -> bytes | None:
-        """Open a temporary InputStream for recording when wake word is disabled."""
         tmp_q = queue.Queue()
 
         def cb(indata, frames, time_info, status):
@@ -271,12 +254,12 @@ class Listener:
                     break
 
         if len(frames) < min_chunks:
-            print("[Listener] Recording too short — discarding.")
+            logger.info("Standalone recording too short — discarding.")
             return None
 
-        audio = np.concatenate(frames).flatten().tobytes()
+        audio      = np.concatenate(frames).flatten().tobytes()
         duration_s = len(audio) / (SAMPLE_RATE * 2)
-        print(f"[Listener] Recorded {duration_s:.2f}s of audio.")
+        logger.info("Recorded %.2fs of audio.", duration_s)
         return audio
 
     def start(self):

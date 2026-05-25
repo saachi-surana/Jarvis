@@ -7,6 +7,7 @@ import requests
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from config import PIPER_MODEL
+from core.logger import logger
 
 _ELEVENLABS_VOICE_ID = "TxGEqnHWrfWFTfGW9XjX"
 _ELEVENLABS_URL = f"https://api.elevenlabs.io/v1/text-to-speech/{_ELEVENLABS_VOICE_ID}"
@@ -46,7 +47,7 @@ def _speak_elevenlabs(text: str) -> bool:
             timeout=15,
         )
         if resp.status_code != 200:
-            print(f"[Speaker] ElevenLabs error {resp.status_code}: {resp.text[:200]}")
+            logger.error("ElevenLabs error %d: %s", resp.status_code, resp.text[:200])
             return False
 
         with open(_TMP_MP3, "wb") as f:
@@ -54,13 +55,13 @@ def _speak_elevenlabs(text: str) -> bool:
 
         result = subprocess.run(["afplay", _TMP_MP3], capture_output=True)
         if result.returncode != 0:
-            print(f"[Speaker] afplay error: {result.stderr.decode().strip()}")
+            logger.error("afplay error: %s", result.stderr.decode().strip())
             return False
 
         return True
 
     except Exception as exc:
-        print(f"[Speaker] ElevenLabs playback failed: {exc}")
+        logger.error("ElevenLabs playback failed: %s", exc)
         return False
 
 
@@ -70,9 +71,7 @@ def _speak_piper(text: str) -> bool:
 
     if not os.path.isfile(piper_model):
         if not _piper_warned:
-            print(f"[Speaker] Piper model not found at {piper_model}")
-            print("[Speaker] Download en_GB-alan-low from https://huggingface.co/rhasspy/piper-voices")
-            print("[Speaker] Falling back to macOS 'say'.")
+            logger.warning("Piper model not found at %s — falling back to macOS 'say'.", piper_model)
             _piper_warned = True
         return False
 
@@ -83,18 +82,18 @@ def _speak_piper(text: str) -> bool:
             capture_output=True,
         )
         if result.returncode != 0:
-            print(f"[Speaker] Piper error: {result.stderr.decode().strip()}")
+            logger.error("Piper error: %s", result.stderr.decode().strip())
             return False
 
         afplay = subprocess.run(["afplay", _TMP_WAV], capture_output=True)
         if afplay.returncode != 0:
-            print(f"[Speaker] afplay error: {afplay.stderr.decode().strip()}")
+            logger.error("afplay error: %s", afplay.stderr.decode().strip())
             return False
 
         return True
 
     except Exception as exc:
-        print(f"[Speaker] Piper playback failed: {exc}")
+        logger.error("Piper playback failed: %s", exc)
         return False
 
 
@@ -102,7 +101,7 @@ def _speak_say(text: str):
     try:
         subprocess.run(["say", "-v", "Daniel", text], check=True)
     except Exception as exc:
-        print(f"[Speaker] 'say' failed: {exc}")
+        logger.error("'say' failed: %s", exc)
 
 
 def _tts_text(text: str) -> str:
@@ -115,7 +114,7 @@ def speak(text: str):
     cleaned = _clean_text(text)
     if not cleaned:
         return
-    print(f"\nJarvis: {cleaned}\n")
+    logger.info("Jarvis: %s", cleaned)
     tts = _tts_text(cleaned)
     is_speaking = True
     try:

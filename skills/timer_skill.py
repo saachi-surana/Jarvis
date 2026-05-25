@@ -6,19 +6,19 @@ import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+from base_skill import BaseSkill
+from core.logger import logger
+from config import TIMER_CHIME_SOUND
 
-def _play_chime():
+
+def _play_chime() -> None:
     try:
-        subprocess.run(
-            ["afplay", "/System/Library/Sounds/Glass.aiff"],
-            capture_output=True,
-        )
+        subprocess.run(["afplay", TIMER_CHIME_SOUND], capture_output=True)
     except Exception as e:
-        print(f"[Timer] Chime playback failed: {e}")
+        logger.error("Timer chime playback failed: %s", e)
 
 
-def _emit_to_hud(event: str, data: dict):
-    """Lazily import socketio from the UI server and broadcast — no-op if unavailable."""
+def _emit_to_hud(event: str, data: dict) -> None:
     try:
         from ui.server import socketio
         socketio.emit(event, data)
@@ -27,18 +27,13 @@ def _emit_to_hud(event: str, data: dict):
 
 
 def _parse_duration(params: dict) -> float:
-    """
-    Accept either duration_minutes (float) or duration (string like "5" or "5 minutes").
-    Returns duration in minutes, or 0 on failure.
-    """
     if "duration_minutes" in params:
         try:
             return float(params["duration_minutes"])
         except (TypeError, ValueError):
             pass
     if "duration" in params:
-        raw = str(params["duration"]).strip().lower()
-        # Strip non-numeric suffix ("5 minutes" → "5", "1.5min" → "1.5")
+        raw     = str(params["duration"]).strip().lower()
         numeric = ""
         for ch in raw:
             if ch.isdigit() or ch == ".":
@@ -52,16 +47,15 @@ def _parse_duration(params: dict) -> float:
     return 0.0
 
 
-def execute(params: dict) -> str:
+def _execute(params: dict) -> str:
     duration_minutes = _parse_duration(params)
 
     if duration_minutes <= 0:
         return "Please provide a valid duration greater than zero."
 
-    label = str(params.get("label", "Timer")).strip() or "Timer"
+    label         = str(params.get("label", "Timer")).strip() or "Timer"
     delay_seconds = duration_minutes * 60
-
-    stop_event = threading.Event()
+    stop_event    = threading.Event()
 
     def do_countdown():
         remaining = int(delay_seconds)
@@ -74,13 +68,13 @@ def execute(params: dict) -> str:
         stop_event.set()
         _play_chime()
         message = f"{label} is done."
-        print(f"\n[Timer] {message}")
+        logger.info("Timer fired: %s", message)
         _emit_to_hud("timer_done", {"label": label})
         try:
             from core.speaker import speak
             speak(message)
         except Exception as e:
-            print(f"[Timer] Could not speak alert: {e}")
+            logger.error("Timer could not speak alert: %s", e)
 
     threading.Thread(target=do_countdown, daemon=True).start()
     t = threading.Timer(delay_seconds, do_fire)
@@ -92,3 +86,14 @@ def execute(params: dict) -> str:
         else duration_minutes
     )
     return f"Got it — {label} set for {minutes_display} minute{'s' if duration_minutes != 1 else ''}."
+
+
+class TimerSkill(BaseSkill):
+    name        = "timer"
+    description = "Countdown timers with chime and voice alert"
+
+    def execute(self, params: dict) -> str:
+        return _execute(params)
+
+
+execute = TimerSkill().execute

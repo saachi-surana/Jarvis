@@ -6,11 +6,12 @@ import requests
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-VSCODE = "Visual Studio Code"
+from base_skill import BaseSkill
+from core.logger import logger
+
+VSCODE    = "Visual Studio Code"
 DOWNLOADS = os.path.expanduser("~/Downloads")
 
-
-# ── helpers ───────────────────────────────────────────────────────────────────
 
 def _run(args: list) -> None:
     subprocess.run(args, check=False)
@@ -19,8 +20,6 @@ def _run(args: list) -> None:
 def _open_path(path: str) -> None:
     _run(["open", os.path.expanduser(path)])
 
-
-# ── actions ───────────────────────────────────────────────────────────────────
 
 def _open_vscode(params: dict) -> str:
     _run(["open", "-a", VSCODE])
@@ -84,8 +83,6 @@ def _download_and_open(params: dict) -> str:
     return f"Downloaded and opened {filename}."
 
 
-# ── dispatch ─────────────────────────────────────────────────────────────────
-
 _ACTIONS = {
     "open_vscode":       _open_vscode,
     "open_vscode_path":  _open_vscode_path,
@@ -95,7 +92,7 @@ _ACTIONS = {
 }
 
 
-def execute(params: dict) -> str:
+def _execute(params: dict) -> str:
     action = str(params.get("action", "")).strip()
     if not action:
         return "No file action specified."
@@ -106,5 +103,16 @@ def execute(params: dict) -> str:
         return handler(params)
     except Exception as e:
         import traceback
-        print(f"[File] Unexpected error:\n{traceback.format_exc()}")
+        logger.error("Unexpected file error:\n%s", traceback.format_exc())
         return f"File error: {e}"
+
+
+class FileSkill(BaseSkill):
+    name        = "file"
+    description = "File system and VS Code operations"
+
+    def execute(self, params: dict) -> str:
+        return _execute(params)
+
+
+execute = FileSkill().execute

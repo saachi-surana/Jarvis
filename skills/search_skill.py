@@ -7,10 +7,12 @@ import requests
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-DB_PATH = os.path.expanduser("~/.notion-planner/tasks.db")
+from base_skill import BaseSkill
+from core.logger import logger
+from config import NOTION_PLANNER_DIR, STUDYSYNC_URL
 
+DB_PATH = os.path.expanduser(f"{NOTION_PLANNER_DIR}/tasks.db")
 
-# ── helpers ───────────────────────────────────────────────────────────────────
 
 def _search_tasks(query: str) -> list[str]:
     if not os.path.isfile(DB_PATH):
@@ -30,7 +32,7 @@ def _search_tasks(query: str) -> list[str]:
             results.append(f"{r['text']}{date_str}")
         return results
     except Exception as e:
-        print(f"[Search] tasks error: {e}")
+        logger.error("Search tasks error: %s", e)
         return []
 
 
@@ -38,37 +40,34 @@ def _search_calendar(query: str) -> list[str]:
     try:
         from calendar_skill import _build_service, _fetch_events
         service = _build_service()
-        now      = datetime.now(timezone.utc)
-        events   = _fetch_events(service, now, now + timedelta(days=30))
+        now     = datetime.now(timezone.utc)
+        events  = _fetch_events(service, now, now + timedelta(days=30))
         q = query.lower()
         results = []
         for ev in events:
             summary = ev.get("summary", "")
             desc    = ev.get("description", "")
             if q in summary.lower() or q in desc.lower():
-                start = ev.get("start", {})
+                start  = ev.get("start", {})
                 dt_str = start.get("dateTime") or start.get("date", "")
-                # Format nicely: "2026-05-22T14:00:00-07:00" → "2026-05-22 14:00"
                 try:
-                    dt = datetime.fromisoformat(dt_str)
+                    dt     = datetime.fromisoformat(dt_str)
                     dt_str = dt.strftime("%b %d %I:%M %p").lstrip("0")
                 except Exception:
                     pass
                 results.append(f"{summary} — {dt_str}")
         return results[:5]
     except Exception as e:
-        print(f"[Search] calendar error: {e}")
+        logger.error("Search calendar error: %s", e)
         return []
 
 
 def _search_studysync(query: str) -> list[str]:
     try:
-        from config import STUDYSYNC_URL
         resp = requests.get(f"{STUDYSYNC_URL}/search", params={"q": query}, timeout=5)
         if not resp.ok:
             return []
-        data = resp.json()
-        # Expect list of {title, course, ...} or plain strings
+        data    = resp.json()
         results = []
         for item in data[:5]:
             if isinstance(item, dict):
@@ -81,19 +80,16 @@ def _search_studysync(query: str) -> list[str]:
                 results.append(item)
         return results
     except Exception as e:
-        print(f"[Search] studysync error: {e}")
+        logger.error("Search StudySync error: %s", e)
         return []
 
 
-# ── dispatch ─────────────────────────────────────────────────────────────────
-
-def execute(params: dict) -> str:
+def _execute(params: dict) -> str:
     query = str(params.get("query", "")).strip()
     if not query:
         return "Please provide a search query."
 
-    source = str(params.get("source", "all")).strip().lower()
-
+    source   = str(params.get("source", "all")).strip().lower()
     sections = []
 
     if source in ("all", "tasks"):
@@ -121,3 +117,14 @@ def execute(params: dict) -> str:
         return f"No results found for '{query}'."
 
     return "\n\n".join(sections)
+
+
+class SearchSkill(BaseSkill):
+    name        = "search"
+    description = "Cross-source search across tasks, calendar, and StudySync"
+
+    def execute(self, params: dict) -> str:
+        return _execute(params)
+
+
+execute = SearchSkill().execute
